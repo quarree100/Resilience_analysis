@@ -35,7 +35,7 @@ def plot(data_file="data/results_Scenario A_ErrorProfiles_input.csv",
     Arguments:
         data_file: Name of the csv file with the results (string)
         vars: List of the output variable names (list of strings)
-        scenarios: List of the possible scenarios (list of strings). Default: ["A", "B", "C"].
+        scenarios: List of the possible dimension_scenarios (list of strings). Default: ["A", "B", "C"].
     """
 
     data = pd.read_csv(data_file)
@@ -44,7 +44,7 @@ def plot(data_file="data/results_Scenario A_ErrorProfiles_input.csv",
 
     # filtering the scenario the data belongs to and setting it as pic title
     title = data_file.split("/")[1]
-    # for s in scenarios:
+    # for s in dimension_scenarios:
     #     if s in data_file:
     #         title = "Scenario " + s
 

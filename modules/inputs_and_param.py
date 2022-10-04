@@ -48,7 +48,7 @@ def get_start_values(filename=parameters_filename,
 
     Arguments:
         filename: Name of the CSV file with the parameter values (string)
-        scenarios: List of the possible scenarios that appear in the parameter file (list of strings). Default:
+        scenarios: List of the possible dimension_scenarios that appear in the parameter file (list of strings). Default:
          ["Scenario A", "Scenario B", "Scenario C"]
 
     Returns:
@@ -148,8 +148,35 @@ def get_inputs(err_file="ErrorProfiles_input.CSV",
     return input
 
 
-def simulation(fmu_filename=fmu_filename, outputs=outputs, error_files=error_files, scenarios=scenarios,
-               make_plot=True):
+def simulation(
+        fmu_filename="FMU_Container.fmu",
+        outputs=outputs,
+        error_files=error_files,
+        dimension_scenarios=scenarios,
+        make_plot=True,
+        store_results=None,
+):
+    """
+
+    Parameters
+    ----------
+    fmu_filename : str
+        Filename of fmu file.
+    outputs : ???
+        ???
+    error_files : list
+        Filenames of error scenarios.
+    dimension_scenarios : list
+        Filenames of dimension scenarios.
+    make_plot : bool
+        Shows some plots.
+    store_results : str
+        Filename for storing the results. If none, nothing ist stored.
+
+    Returns
+    -------
+
+    """
     start_values_dict = get_start_values()
 
     # extract the FMU to a temporary directory
@@ -167,7 +194,7 @@ def simulation(fmu_filename=fmu_filename, outputs=outputs, error_files=error_fil
 
         inputs = get_inputs(err_file=error_file)
 
-        for scenario in scenarios:
+        for scenario in dimension_scenarios:
             # reset the FMU instance instead of creating a new one
             fmu_instance.reset()
 
@@ -206,5 +233,5 @@ def simulation(fmu_filename=fmu_filename, outputs=outputs, error_files=error_fil
 
 
 if __name__ == '__main__':
-    simulation(make_plot=True)
+    simulation()
     # calculate_resilience()
