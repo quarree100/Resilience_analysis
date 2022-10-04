@@ -1,0 +1,11 @@
+Parameter,Unit,Explanation,Scenario A,Scenario B,Scenario C
+ScaleFactor_HP1,[-],1=500 kW,0.8,0.4,2.4
+ScaleFactor_HP2,[-],1=500 kW,0.2,0.1,0.6
+capP_el_chp,[kW],-,500,750,250
+eta_el_chp,[-],-,0.25,0.25,0.25
+eta_th_chp,[-],-,0.65,2,0.65
+capP_el_electrolyser,[kW],-,250,250,250
+capP_el_pv,[W],-,2000,2000,200
+capQ_th_boiler,[kW],-,2000,2000,1000
+h_tes,[m],-,3.2,3.2,6
+d_tes,[m],-,20,20,20

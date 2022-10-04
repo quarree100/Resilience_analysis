@@ -1,0 +1,36 @@
+---
+gas_source:
+  variable_costs: 0.06  # €/kWh
+  emission_factor: 0.202  # kg/kWh
+electricity_source:
+  variable_costs: 0.18  # €/kWh
+  emission_factor: 0.350  # kg/kWh
+electricity_sell:
+  variable_costs: -0.07  # €/kWh
+  emission_factor: -0.350  # kg/kWh
+hydrogen_sell:
+  variable_costs: -0.15  # €/kWh
+  emission_factor: 0  # kg/kWh
+gas_boiler:
+  efficiency: 0.85  #
+  minimum_load: 0.2  #
+chp:
+  efficiency_el: 0.38  # 
+  efficiency_th: 0.55  #
+  minimum_load: 0.5
+electrolysis:
+  efficiency_h2: 0.6  #
+  efficiency_heat_excess: 0.18
+  fullloadhours_min: 0
+  fullloadhours_max: 0
+  minimum_load: 0.25
+heatpump_air:
+  cop: 3.0
+  minimum_load: 0.25
+heatpump_ground:
+  cop: 4.0
+  minimum_load: 0.25
+  fullloadhours_max: 2500
+thermal_storage:
+  absolute_loss: 0.001
+  relative_loss: 0.002
