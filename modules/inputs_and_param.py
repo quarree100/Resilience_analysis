@@ -3,17 +3,9 @@ import numpy as np
 from fmpy import *
 import shutil
 import os
-from plotting_results import plot
-from resilience_index import calculate_resilience
-
-fmu_filename = "FMU_Container.fmu"
-
-parameters_filename = "Parameter_Values.csv"
-scenarios = [
-    "Scenario A",
-    # "Scenario B",
-    # "Scenario C",
-]
+from modules.plotting_results import plot
+from modules.resilience_index import calculate_resilience
+from modules.oemof_model import calculate_oemof_model
 
 # Outputs
 outputs = ['controller.calc_Qdot_production.u_Qdot_Boiler',
@@ -27,22 +19,8 @@ outputs = ['controller.calc_Qdot_production.u_Qdot_Boiler',
            'fMU_PhyModel.temperature_HeatGrid_FF.T',
            "controller.u_T_HeatGrid_FF_set"]
 
-error_files = [
-    # "ErrorProfiles_input.CSV",
-    # "ErrorProfiles_input_Boiler_14_10_18.CSV",
-    # "ErrorProfiles_input_CHP_13_1_18.CSV",
-    "ErrorProfiles_input_no-errors.CSV",
-]
 
-# Input files
-# err_file = "ErrorProfiles_input.CSV"
-sch_file = "ScheduleProfiles_input.CSV"
-T_file = "T_amp_input.CSV"
-load_file = "LoadProfiles_input.CSV"
-
-
-def get_start_values(filename=parameters_filename,
-                     scenarios=["Scenario A", "Scenario B", "Scenario C"]):
+def get_start_values(scenarios, filename):
     """
     Function to read and prepare the tech_param to pass them to the FMU simulation.
 
@@ -56,33 +34,31 @@ def get_start_values(filename=parameters_filename,
         all the parameter values corresponding to that scenario directly with the format that fmpy.simulate_fmu
         requires.
 
-"""
-    df_params = pd.read_csv(filename, delimiter=";").set_index("Parameter")
+    """
+    path = os.path.join("input", "common", "dimension_scenarios")
 
-    # creation of an empty dictionary
-    start_values_dict = {}
+    df_params = pd.read_csv(
+        os.path.join(path, filename), delimiter=";").set_index("Parameter")
 
-    # for each scenario, a dictionary is created, where the keys are the parameter names, and added as an entry to the
-    # output dictionary
-    for scenario in scenarios:
-        scenario_dict = {}
-        for jj, element in enumerate(df_params.index):
-            scenario_dict.update({element: df_params[scenario][jj]})
-
-        start_values_dict.update({scenario: scenario_dict})
+    start_values_dict = df_params.to_dict()
+    start_values_dict = {k: v for k, v in start_values_dict.items()
+                         if k in scenarios}
 
     return start_values_dict
 
 
-def get_inputs(err_file="ErrorProfiles_input.CSV",
-               sch_file="ScheduleProfiles_input.CSV", T_file="T_amp_input.CSV",
-               load_file="LoadProfiles_input.CSV"):
+def get_inputs(
+        sch_profiles,
+        err_file="ErrorProfiles_input.CSV",
+        T_file="T_amp_input.CSV",
+        load_file="LoadProfiles_input.CSV",
+):
     """
     Function to read and prepare the inputs to pass them to the FMU simulation.
 
     Arguments:
         err_file: CSV file name for the errors. Default: "ErrorProfiles_input.CSV"
-        sch_file: CSV file name for the scheduled profiles. Default: "ScheduleProfiles_input.CSV"
+        sch_profiles: CSV file name for the scheduled profiles. Default: "ScheduleProfiles_input.CSV"
         T_file: CSV file name for the temperature. Default: "T_amp_input.CSV"
         load_file: CSV file name for the load profiles. Default: "LoadProfiles_input.CSV"
 
@@ -91,14 +67,17 @@ def get_inputs(err_file="ErrorProfiles_input.CSV",
         requires.
 
     """
-    try:
-        err_df = pd.read_csv(err_file, delimiter=";", index_col="sec")
-    except ValueError:
-        err_df = pd.read_csv(err_file, delimiter=",", index_col="sec")
+    fn = os.path.join("input", "modelica", "error_scenarios", err_file)
+    path_common = os.path.join("input", "common")
 
-    sch_df = pd.read_csv(sch_file, delimiter=";", index_col="sec")
-    T_df = pd.read_csv(T_file, delimiter=";", index_col="Time")
-    load_df = pd.read_csv(load_file, delimiter=";", index_col="HOUR")
+    try:
+        err_df = pd.read_csv(fn, delimiter=";", index_col="sec")
+    except ValueError:
+        err_df = pd.read_csv(fn, delimiter=",", index_col="sec")
+
+    sch_df = sch_profiles
+    T_df = pd.read_csv(os.path.join(path_common, T_file), delimiter=";", index_col="Time")
+    load_df = pd.read_csv(os.path.join(path_common, load_file), delimiter=";", index_col="HOUR")
 
     # Demand power and heat are calculated as the corresponding additions of all power and heat demands
     load_df["DemandPower"] = load_df["E_el_HH"] + load_df["E_el_GHD"]
@@ -148,22 +127,27 @@ def get_inputs(err_file="ErrorProfiles_input.CSV",
     return input
 
 
+def get_profiles():
+    pass
+
+
 def simulation(
+        error_files,
+        dimension_scenarios,
+        dimension_filename="Parameter_Values.csv",
         fmu_filename="FMU_Container.fmu",
-        outputs=outputs,
-        error_files=error_files,
-        dimension_scenarios=scenarios,
         make_plot=True,
         store_results=None,
+        simulation_period=("01-01", 14),
+        schedule_profiles_filename=None
 ):
     """
 
     Parameters
     ----------
+    schedule_profiles
     fmu_filename : str
         Filename of fmu file.
-    outputs : ???
-        ???
     error_files : list
         Filenames of error scenarios.
     dimension_scenarios : list
@@ -172,15 +156,20 @@ def simulation(
         Shows some plots.
     store_results : str
         Filename for storing the results. If none, nothing ist stored.
+    simulation_period : tuple
+        Date of start (DD-MM), number of days
 
     Returns
     -------
 
     """
-    start_values_dict = get_start_values()
+    start_values_dict = get_start_values(
+        filename=dimension_filename,
+        scenarios=dimension_scenarios,
+    )
 
     # extract the FMU to a temporary directory
-    unzipdir = extract(fmu_filename)
+    unzipdir = extract(os.path.join("input", "modelica", "fmu", fmu_filename))
 
     # read the model description
     model_description = read_model_description(unzipdir)
@@ -190,11 +179,28 @@ def simulation(
 
     # for each error file, the structured array for the inputs is generated and each scenario is simulated, the
     # corresponding results saved in a csv file
-    for error_file in error_files:
 
-        inputs = get_inputs(err_file=error_file)
+    for scenario in dimension_scenarios:
 
-        for scenario in dimension_scenarios:
+        # It is possible to provide schedule files. If not given,
+        # the oemof model is calculated
+        if schedule_profiles_filename is None:
+            calculate_oemof_model()
+            schedule_profiles = get_profiles()
+        else:
+            schedule_profiles = pd.read_csv(
+                os.path.join("input", "modelica", "profiles",
+                             schedule_profiles_filename),
+                delimiter=";", index_col="sec"
+            )
+
+        for error_file in error_files:
+
+            inputs = get_inputs(
+                err_file=error_file,
+                sch_profiles=schedule_profiles,
+            )
+
             # reset the FMU instance instead of creating a new one
             fmu_instance.reset()
 
@@ -217,21 +223,16 @@ def simulation(
             path = os.getcwd() + "/data"
             if not os.path.isdir(path):
                 os.mkdir(path)
-            csv_filename = "data/" + "results_" + str(scenario) + "_" + error_file
+            csv_filename = "results/" + "data/" + "results_" + str(scenario) + "_" + error_file
             df_res.to_csv(csv_filename)
 
             plot(csv_filename)
 
-            # if make_plot:
-            #     plot(data_file=csv_filename)
+            if make_plot:
+                plot(data_file=csv_filename)
 
     # free the FMU instance and unload the shared library
     fmu_instance.freeInstance()
 
     # delete the temporary directory
     shutil.rmtree(unzipdir, ignore_errors=True)
-
-
-if __name__ == '__main__':
-    simulation()
-    # calculate_resilience()

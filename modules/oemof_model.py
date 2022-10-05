@@ -10,35 +10,16 @@ from matplotlib import pyplot as plt
 
 import logging
 
-tech_param = "parameter.yaml"
-heat_load_file = "LoadProfiles_input.CSV"
-temp_ambient_file = "T_amp_input.CSV"
-pv_file = "PV_timeseries.csv"
-
-# #########
-
-with open(tech_param) as file:
-    tech_param = yaml.safe_load(file)
-
-heat_load = pd.read_csv(os.path.join("..", heat_load_file), sep=";")
-total_heat_load = heat_load["E_th_RH_HH"] + heat_load["E_th_TWE_HH"] + \
-                  heat_load["E_th_RH_HH"] + heat_load["E_th_TWE_HH"] + \
-                  heat_load["E_th_loss"]
-
-t_amb = pd.read_csv(os.path.join("..", temp_ambient_file), sep=";")
-
-pv_normed_series = pd.read_csv(os.path.join(pv_file))
-
 
 def create_solph_model(
+        techparam,
         capacity_boiler=3000,
         capacity_chp_el=400,
         capacity_hp_air=1000,
         capacity_hp_ground=500,
         capacity_electrlysis_el=250,
         capacity_pv=1500,
-        capacity_thermal_storage_m3=1000,
-        techparam=tech_param,
+        capacity_thermal_storage_m3=1000
 ):
     number_of_time_steps = 24 * 4 * 7
 
@@ -280,30 +261,54 @@ def solve_model(energysystem):
     return energysystem
 
 
-esys = create_solph_model()
-esys = solve_model(esys)
+def calculate_oemof_model():
+    pass
 
-# print and plot some results
-results = esys.results["main"]
 
-heat_gen = solph.views.node(results, "heat_generation")
-heat_store = solph.views.node(results, "thermal_storage")
-elec = solph.views.node(results, "electricity")
+if __name__ == '__main__':
+    tech_param = "parameter.yaml"
+    heat_load_file = "LoadProfiles_input.CSV"
+    temp_ambient_file = "T_amp_input.CSV"
+    pv_file = "PV_timeseries.csv"
 
-print(heat_gen["sequences"].sum())
-print(heat_store["sequences"].sum())
-print(elec["sequences"].sum())
+    # #########
 
-fig1, ax = plt.subplots(figsize=(10, 5))
-heat_gen["sequences"].plot(ax=ax)
-plt.show()
+    with open(tech_param) as file:
+        tech_param = yaml.safe_load(file)
 
-fig2, ax = plt.subplots(figsize=(10, 5))
-heat_store["sequences"].plot(ax=ax)
-plt.show()
+    heat_load = pd.read_csv(os.path.join("..", heat_load_file), sep=";")
+    total_heat_load = heat_load["E_th_RH_HH"] + heat_load["E_th_TWE_HH"] + \
+                      heat_load["E_th_RH_HH"] + heat_load["E_th_TWE_HH"] + \
+                      heat_load["E_th_loss"]
 
-fig3, ax = plt.subplots(figsize=(10, 5))
-elec["sequences"].plot(ax=ax)
-plt.show()
+    t_amb = pd.read_csv(os.path.join("..", temp_ambient_file), sep=";")
 
-logging.info("Done!")
+    pv_normed_series = pd.read_csv(os.path.join(pv_file))
+
+    esys = create_solph_model(techparam=tech_param)
+    esys = solve_model(esys)
+
+    # print and plot some results
+    results = esys.results["main"]
+
+    heat_gen = solph.views.node(results, "heat_generation")
+    heat_store = solph.views.node(results, "thermal_storage")
+    elec = solph.views.node(results, "electricity")
+
+    print(heat_gen["sequences"].sum())
+    print(heat_store["sequences"].sum())
+    print(elec["sequences"].sum())
+
+    fig1, ax = plt.subplots(figsize=(10, 5))
+    heat_gen["sequences"].plot(ax=ax)
+    plt.show()
+
+    fig2, ax = plt.subplots(figsize=(10, 5))
+    heat_store["sequences"].plot(ax=ax)
+    plt.show()
+
+    fig3, ax = plt.subplots(figsize=(10, 5))
+    elec["sequences"].plot(ax=ax)
+    plt.show()
+
+    logging.info("Done!")
