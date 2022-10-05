@@ -261,11 +261,14 @@ def solve_model(energysystem):
     return energysystem
 
 
-def calculate_oemof_model():
+def calculate_oemof_model(
+        simulation_period=("01-01", 14),
+):
     pass
 
 
 if __name__ == '__main__':
+
     tech_param = "parameter.yaml"
     heat_load_file = "LoadProfiles_input.CSV"
     temp_ambient_file = "T_amp_input.CSV"
