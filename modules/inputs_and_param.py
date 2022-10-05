@@ -177,9 +177,6 @@ def simulation(
     # instantiate the FMU
     fmu_instance = instantiate_fmu(unzipdir, model_description, 'CoSimulation')
 
-    # for each error file, the structured array for the inputs is generated and each scenario is simulated, the
-    # corresponding results saved in a csv file
-
     for scenario in dimension_scenarios:
 
         # It is possible to provide schedule files. If not given,
@@ -187,6 +184,7 @@ def simulation(
         if schedule_profiles_filename is None:
             calculate_oemof_model()
             schedule_profiles = get_profiles()
+
         else:
             schedule_profiles = pd.read_csv(
                 os.path.join("input", "modelica", "profiles",
@@ -194,8 +192,12 @@ def simulation(
                 delimiter=";", index_col="sec"
             )
 
+        # for each error file, the structured array for the inputs is generated
+        # and each scenario is simulated, the
+        # corresponding results saved in a csv file
         for error_file in error_files:
 
+            # TODO : Add `simulation_period` >> all inputs need to be sliced
             inputs = get_inputs(
                 err_file=error_file,
                 sch_profiles=schedule_profiles,
