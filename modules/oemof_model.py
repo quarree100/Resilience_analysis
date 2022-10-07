@@ -7,12 +7,15 @@ from oemof.network.graph import create_nx_graph
 from oemof_visio import ESGraphRenderer
 # from q100opt.plots import plot_es_graph
 from matplotlib import pyplot as plt
+import datetime
 
 import logging
 
 
 def create_solph_model(
         techparam,
+        timeindex,
+        timeseries,
         capacity_boiler=3000,
         capacity_chp_el=400,
         capacity_hp_air=1000,
@@ -21,7 +24,6 @@ def create_solph_model(
         capacity_pv=1500,
         capacity_thermal_storage_m3=1000
 ):
-    number_of_time_steps = 24 * 4 * 7
 
     # initiate the logger (see the API docs for more information)
     logger.define_logging(
@@ -31,11 +33,8 @@ def create_solph_model(
     )
 
     logging.info("Initialize the energy system")
-    date_time_index = pd.date_range(
-        "1/1/2012", periods=number_of_time_steps, freq="15min"
-    )
 
-    energysystem = solph.EnergySystem(timeindex=date_time_index)
+    energysystem = solph.EnergySystem(timeindex=timeindex)
 
     logging.info("Create oemof objects")
 
@@ -269,26 +268,36 @@ def calculate_oemof_model(
 
 if __name__ == '__main__':
 
-    tech_param = "parameter.yaml"
-    heat_load_file = "LoadProfiles_input.CSV"
-    temp_ambient_file = "T_amp_input.CSV"
-    pv_file = "PV_timeseries.csv"
+    simulation_period = ("15-02-2022", 14)  # start date, length of period in days
+
+    path_oemof = os.path.join("..", "input", "solph")
+    path_common = os.path.join("..", "input", "common")
+
+    tech_param = os.path.join(path_oemof, "parameter.yaml")
+
+    timeseries = pd.read_csv(os.path.join(path_oemof, "Timeseries_15min.csv"),
+                             sep=",")
+
+    timeseries.index = pd.DatetimeIndex(
+        pd.date_range(start="01-01-2022", freq="15min", periods=8760*4)
+    )
+
+    start = pd.to_datetime(simulation_period[0], yearfirst=False)
+    end = start + pd.Timedelta(simulation_period[1], unit="D")
+    time_slice = timeseries[start:end]
 
     # #########
 
     with open(tech_param) as file:
         tech_param = yaml.safe_load(file)
 
-    heat_load = pd.read_csv(os.path.join("..", heat_load_file), sep=";")
-    total_heat_load = heat_load["E_th_RH_HH"] + heat_load["E_th_TWE_HH"] + \
-                      heat_load["E_th_RH_HH"] + heat_load["E_th_TWE_HH"] + \
-                      heat_load["E_th_loss"]
+    total_heat_load = time_slice["Heat_demand_after_storage_kW"]
 
-    t_amb = pd.read_csv(os.path.join("..", temp_ambient_file), sep=";")
+    t_amb = time_slice["T_amb_C"]
 
-    pv_normed_series = pd.read_csv(os.path.join(pv_file))
+    pv_normed_series = time_slice["pv_normed_per_kWp"]
 
-    esys = create_solph_model(techparam=tech_param)
+    esys = create_solph_model(techparam=tech_param, timeindex=time_slice.index)
     esys = solve_model(esys)
 
     # print and plot some results
