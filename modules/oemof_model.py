@@ -68,7 +68,7 @@ def create_solph_model(
         label="pv",
         outputs={b_elec: solph.Flow(
             nominal_value=capacity_pv,
-            fix=pv_normed_series["pv.fix"],
+            fix=timeseries["pv_normed_per_kWp"],
         )}
     )
 
@@ -76,7 +76,7 @@ def create_solph_model(
         label="demand",
         inputs={b_heat_grid: solph.Flow(
             nominal_value=1,
-            fix=total_heat_load,
+            fix=timeseries["Heat_demand_after_storage_kW"],
         )}
     )
 
@@ -215,9 +215,9 @@ def create_solph_model(
 
     # plot_es_graph(energysystem, show=True)
 
-    # gr = ESGraphRenderer(energy_system=energysystem, filepath="energy_system",
-    #                      img_format="png")
-    # gr.view()
+    gr = ESGraphRenderer(energy_system=energysystem, filepath="energy_system",
+                         img_format="png")
+    gr.view()
 
     return energysystem
 
@@ -297,7 +297,11 @@ if __name__ == '__main__':
 
     pv_normed_series = time_slice["pv_normed_per_kWp"]
 
-    esys = create_solph_model(techparam=tech_param, timeindex=time_slice.index)
+    esys = create_solph_model(
+        techparam=tech_param,
+        timeindex=time_slice.index,
+        timeseries=time_slice,
+    )
     esys = solve_model(esys)
 
     # print and plot some results
