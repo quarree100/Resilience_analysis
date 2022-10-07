@@ -339,7 +339,11 @@ def calculate_oemof_model(
 
 if __name__ == '__main__':
 
+    # perspective function arguments
+
     simulation_period = ("15-02-2022", 14)  # start date, length of period in days
+
+    # more or less fixed input paths (no function attributes)
 
     path_oemof = os.path.join("..", "input", "solph")
     path_common = os.path.join("..", "input", "common")
@@ -353,20 +357,14 @@ if __name__ == '__main__':
         pd.date_range(start="01-01-2022", freq="15min", periods=8760*4)
     )
 
-    start = pd.to_datetime(simulation_period[0], yearfirst=False)
-    end = start + pd.Timedelta(simulation_period[1], unit="D")
-    time_slice = timeseries[start:end]
-
-    # #########
-
     with open(tech_param) as file:
         tech_param = yaml.safe_load(file)
 
-    total_heat_load = time_slice["Heat_demand_after_storage_kW"]
+    # Create and solve oemof-solph model
 
-    t_amb = time_slice["T_amb_C"]
-
-    pv_normed_series = time_slice["pv_normed_per_kWp"]
+    start = pd.to_datetime(simulation_period[0], yearfirst=False)
+    end = start + pd.Timedelta(simulation_period[1], unit="D")
+    time_slice = timeseries[start:end]
 
     esys = create_solph_model(
         techparam=tech_param,
@@ -476,13 +474,6 @@ if __name__ == '__main__':
         gas_sum = solph.views.node(results, "gas")[
             "sequences"].sum()
         gas.append(gas_sum)
-
-        # b_gas = solph.Bus(label="gas")
-        # b_elec = solph.Bus(label="electricity")
-        # b_heat_generation = solph.Bus(label="heat_generation")
-        # b_heat_storage_out = solph.Bus(label="storage_out")
-        # b_heat_grid = solph.Bus(label="heat_grid")
-        # b_h2 = solph.Bus(label="h2")
 
     df_heat_all = pd.concat(heat, axis=1)
     df_heat_all.columns = ["CO2_min", "CO2_mid", "CO2_max"]
