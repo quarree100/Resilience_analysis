@@ -25,7 +25,8 @@ vars = ['controller.calc_Qdot_production.u_Qdot_Boiler',
         ]
 
 def temperature_control():
-    """"""
+    """Plots a figure with a subplot for each scenario, where the temperatures for each error file are compared with each other and the set temperature. 
+    The last subplot shows all temperature variables for all scenarios together."""
     data = pd.read_csv("data/results_Scenario A_ErrorProfiles_input.csv")
     data["fMU_PhyModel.temperature_HeatGrid_FF.T"] = data["fMU_PhyModel.temperature_HeatGrid_FF.T"] - 273.15
     temp_A = data[vars[8]]
