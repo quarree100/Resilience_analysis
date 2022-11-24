@@ -1,6 +1,9 @@
 import matplotlib.pyplot as plt
 import pandas as pd
 import parse
+import plotly.graph_objects as go
+import res_tools_flexible as res
+import numpy as np
 
 filenames = ["data/results_Scenario A_ErrorProfiles_input.csv",
              "data/results_Scenario A_ErrorProfiles_input_Boiler_14_10_18.csv",
@@ -271,11 +274,82 @@ def plot(data_file="data/results_Scenario A_ErrorProfiles_input.csv",
 
     fig.tight_layout()
 
-    plt.show()
+    plt.savefig("data/" + title.replace(" ", "_") + ".png")
 
-    # plt.savefig("data/" + title.replace(" ", "_") + ".png")
 
+def getting_data_radar_chart():
+    load = 290  # (aprox.) from excel file "Quarree100_load_15_Modelica"
+
+    redundancy_list = []
+    stirling_list = []
+    shannon_list = []
+
+    for sheet in ["Anlagen_basic",
+                  "Anlagen_examples_for_p_inst",
+                  "Anlagen_more_indices",
+                  "Anlagen_more_indices_2"]:
+        l_o_s = res.summon_systems(path_to_excel_file="examples/excel_data/res_tools_example_data.xlsx",
+                                   sheet_name=sheet)
+        redundancy_list.append(res.redundancy(load, l_o_s, "p_inst_out_th"))
+        shannon_list.append(res.shannon_index(l_o_s, "p_inst_out_th"))
+        stirling_list.append(res.stirling_index(l_o_s, "p_inst_out_th"))
+
+    redundancy = np.array(redundancy_list)
+    shannon = np.array(shannon_list)
+    stirling = np.array(stirling_list)
+
+    redundancy_transformed = np.zeros(4)
+    max_val = redundancy.max() + redundancy.mean()/5
+    min_val = redundancy.min() - redundancy.mean()/5
+    val_range = max_val - min_val
+    for count, element in enumerate(redundancy):
+        redundancy_transformed[count] = (element - min_val) * 100 / val_range
+
+    stirling_transformed = np.zeros(4)
+    max_val = stirling.max() + stirling.mean()/5
+    min_val = stirling.min() - stirling.mean()/5
+    val_range = max_val - min_val
+    for count, element in enumerate(stirling):
+        stirling_transformed[count] = (element - min_val) * 100 / val_range
+
+    shannon_transformed = np.zeros(4)
+    max_val = shannon.max() + shannon.mean()/5
+    min_val = shannon.min() - shannon.mean()/5
+    val_range = max_val - min_val
+    for count, element in enumerate(shannon):
+        shannon_transformed[count] = (element - min_val) * 100 / val_range
+
+    return shannon_transformed, stirling_transformed, redundancy_transformed
+
+def radar_chart(scenarios = ["Scenario A", "Scenario B", "Scenario C", "Scenario D"]):
+
+    categories = ["Shannon Index", "Stirling Index", "Redundancy"]
+
+    shannon, stirling, redundancy = getting_data_radar_chart()
+
+    fig = go.Figure()
+
+    for ii in range(len(scenarios)):
+        fig.add_trace(go.Scatterpolar(
+            r=[shannon[ii], stirling[ii], redundancy[ii]],
+            theta=categories,
+            fill='toself',
+            name=scenarios[ii]
+        ))
+
+    fig.update_layout(
+        polar=dict(
+            radialaxis=dict(
+                visible=True,
+                range=[0, 100]
+            )),
+        showlegend=True
+    )
+
+    #fig.show()
+
+    fig.write_image("radar_chart_exp.png")  # specifically kaleido v0.1.0.post1 was required for this line
 
 if __name__ == '__main__':
-    for file in filenames:
-        plot(data_file=file, show=True)
+
+    radar_chart()
