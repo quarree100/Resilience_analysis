@@ -4,6 +4,7 @@ import parse
 import plotly.graph_objects as go
 import res_tools_flexible as res
 import numpy as np
+import os
 
 filenames = ["data/results_Scenario A_ErrorProfiles_input.csv",
              "data/results_Scenario A_ErrorProfiles_input_Boiler_14_10_18.csv",
@@ -27,83 +28,82 @@ vars = ['controller.calc_Qdot_production.u_Qdot_Boiler',
         "controller.u_T_HeatGrid_FF_set"
         ]
 
-def temperature_control():
-    """Plots a figure with a subplot for each scenario, where the temperatures for each error file are compared with each other and the set temperature. 
-    The last subplot shows all temperature variables for all scenarios together."""
-    data = pd.read_csv("data/results_Scenario A_ErrorProfiles_input.csv")
-    data["fMU_PhyModel.temperature_HeatGrid_FF.T"] = data["fMU_PhyModel.temperature_HeatGrid_FF.T"] - 273.15
-    temp_A = data[vars[8]]
-    temp_A_set = data[vars[9]]
-    data = pd.read_csv("data/results_Scenario A_ErrorProfiles_input_Boiler_14_10_18.csv")
-    data["fMU_PhyModel.temperature_HeatGrid_FF.T"] = data["fMU_PhyModel.temperature_HeatGrid_FF.T"] - 273.15
-    temp_A_error_boiler = data[vars[8]]
-    data = pd.read_csv("data/results_Scenario A_ErrorProfiles_input_CHP_13_1_18.csv")
-    data["fMU_PhyModel.temperature_HeatGrid_FF.T"] = data["fMU_PhyModel.temperature_HeatGrid_FF.T"] - 273.15
-    temp_A_error_chp = data[vars[8]]
+def temperature_control(scenarios=["A", "B", "C"], errors=["Boiler_14_10_18", "CHP_13_1_18"],
+                            temp_var="fMU_PhyModel.temperature_HeatGrid_FF.T",
+                            temp_set="controller.u_T_HeatGrid_FF_set"):
+    """Plots a figure with a subplot for each scenario, where the temperatures for each error file are compared with
+    each other and the set temperature.The last subplot shows all temperature variables for all scenarios together.
 
-    data = pd.read_csv("data/results_Scenario B_ErrorProfiles_input.csv")
-    data["fMU_PhyModel.temperature_HeatGrid_FF.T"] = data["fMU_PhyModel.temperature_HeatGrid_FF.T"] - 273.15
-    temp_B = data[vars[8]]
-    temp_B_set = data[vars[9]]
-    data = pd.read_csv("data/results_Scenario B_ErrorProfiles_input_Boiler_14_10_18.csv")
-    data["fMU_PhyModel.temperature_HeatGrid_FF.T"] = data["fMU_PhyModel.temperature_HeatGrid_FF.T"] - 273.15
-    temp_B_error_boiler = data[vars[8]]
-    data = pd.read_csv("data/results_Scenario B_ErrorProfiles_input_CHP_13_1_18.csv")
-    data["fMU_PhyModel.temperature_HeatGrid_FF.T"] = data["fMU_PhyModel.temperature_HeatGrid_FF.T"] - 273.15
-    temp_B_error_chp = data[vars[8]]
+    Arguments:
+        scenarios: list of strings with the names or distinction between scenarios. Default: ["A", "B", "C"].
+        errors: list of strings with the names or distinction between errors. Default: ["Boiler_14_10_18",
+        "CHP_13_1_18"].
+        temp_var: string. Name of the temperature variable in the model. Default:
+        "fMU_PhyModel.temperature_HeatGrid_FF.T".
+        temp_set: string. Name of the set temperature variable in the model. Default: "controller.u_T_HeatGrid_FF_set".
+        """
 
-    data = pd.read_csv("data/results_Scenario C_ErrorProfiles_input.csv")
-    data["fMU_PhyModel.temperature_HeatGrid_FF.T"] = data["fMU_PhyModel.temperature_HeatGrid_FF.T"] - 273.15
-    temp_C = data[vars[8]]
-    temp_C_set = data[vars[9]]
-    data = pd.read_csv("data/results_Scenario C_ErrorProfiles_input_Boiler_14_10_18.csv")
-    data["fMU_PhyModel.temperature_HeatGrid_FF.T"] = data["fMU_PhyModel.temperature_HeatGrid_FF.T"] - 273.15
-    temp_C_error_boiler = data[vars[8]]
-    data = pd.read_csv("data/results_Scenario C_ErrorProfiles_input_CHP_13_1_18.csv")
-    data["fMU_PhyModel.temperature_HeatGrid_FF.T"] = data["fMU_PhyModel.temperature_HeatGrid_FF.T"] - 273.15
-    temp_C_error_chp = data[vars[8]]
+    if not os.path.isdir("data"):
+        os.mkdir("data")
+
+    os.chdir("data")
+    files_list = os.listdir()
+    csv_list = []
+    for file in files_list:
+        if ".CSV" in file:
+            csv_list.append(file)
+
+    scenarios_dict = {}
+    for scenario in scenarios:
+        temp_dict = {}
+        for element in csv_list:
+            if scenario in element:
+                df = pd.read_csv(element)
+                df[temp_var] = df[temp_var] - 273.15
+                info = scenario
+                temp_dict[info] = df[temp_var]
+                temp_dict[scenario + "_set"] = df[temp_set]
+                for error in errors:
+                    if error in element:
+                        info = info + "_" + error
+
+                temp_dict[info] = df[temp_var]
+
+        scenarios_dict[scenario] = temp_dict
 
     fig, axs = plt.subplots(4, 1, figsize=(15, 8))
+    colors = {}
+    colors[0] = ["b-", "b--", "b:", "r-"]
+    colors[1] = ["g-", "g--", "g:", "r-"]
+    colors[2] = ["c-", "c--", "c:", "r-"]
 
-    axs[0].plot(data["time"], temp_A, "b-")
-    axs[0].plot(data["time"], temp_A_error_boiler, "b--")
-    axs[0].plot(data["time"], temp_A_error_chp, "b:")
-    axs[0].plot(data["time"], temp_A_set, "r-")
-    axs[0].set_title("Scenario A")
-    axs[0].set_ylabel("Temperature (C)")
+    for count, scenario in enumerate(scenarios):
+        for key_count, key in enumerate(scenarios_dict[scenario].keys()):
+            axs[count].plot(df["time"], scenarios_dict[scenario][key], colors[count][key_count])
+            axs[count].set_title("Scenario " + scenario)
+            axs[count].set_ylabel("Temperature (C)")
 
-    axs[1].plot(data["time"], temp_B, "g-")
-    axs[1].plot(data["time"], temp_B_error_boiler, "g--")
-    axs[1].plot(data["time"], temp_B_error_chp, "g:")
-    axs[1].plot(data["time"], temp_B_set, "r-")
-    axs[1].set_title("Scenario B")
-    axs[1].set_ylabel("Temperature (C)")
-
-    axs[2].plot(data["time"], temp_C, "c-")
-    axs[2].plot(data["time"], temp_C_error_boiler, "c--")
-    axs[2].plot(data["time"], temp_C_error_chp, "c:")
-    axs[2].plot(data["time"], temp_C_set, "r-")
-    axs[2].set_title("Scenario C")
-    axs[2].set_ylabel("Temperature (C)")
-
-    axs[3].plot(data["time"], temp_A, "b-", label="T without error, scenario A")
-    axs[3].plot(data["time"], temp_A_error_boiler, "b--", label="T with boiler error, scenario A")
-    axs[3].plot(data["time"], temp_A_error_chp, "b:", label="T with CHP error, scenario A")
-    axs[3].plot(data["time"], temp_B, "g-", label="T without error, scenario B")
-    axs[3].plot(data["time"], temp_B_error_boiler, "g--", label="T with boiler error, scenario B")
-    axs[3].plot(data["time"], temp_B_error_chp, "g:", label="T with CHP error, scenario B")
-    axs[3].plot(data["time"], temp_C, "c-", label="T without error, scenario C")
-    axs[3].plot(data["time"], temp_C_error_boiler, "c--", label="T with boiler error, scenario C")
-    axs[3].plot(data["time"], temp_C_error_chp, "c:", label="T with CHP error, scenario C")
-    axs[3].plot(data["time"], temp_C_set, "r-", label="set T")
+    for count, scenario in enumerate(scenarios):
+        for key_count, key in enumerate(scenarios_dict[scenario].keys()):
+            split_key = key.split("_")
+            label = "scenario " + split_key[0]
+            if error[0] in key:
+                label = "T with boiler error, " + label
+            elif error[1] in key:
+                label = "T with chp error, " + label
+            elif "set" in key:
+                label = "T set, " + label
+            else:
+                label = "T " + label
+            axs[3].plot(df["time"], scenarios_dict[scenario][key], colors[count][key_count], label=label)
     axs[3].set_title("All scenarios")
     axs[3].set_ylabel("Temperature (C)")
     axs[3].set_xlabel("Time (min)")
+
     fig.legend()
 
     fig.tight_layout()
     plt.savefig("temperature_control.png")
-
 
 def resilience_box_plot(data_file="data/resilience.csv", scenarios=["A", "B", "C"],
                         errors=["Boiler_14_10_18", "CHP_13_1_18"]):
@@ -246,31 +246,24 @@ def plot(data_file="data/results_Scenario A_ErrorProfiles_input.csv",
 
     fig.suptitle(title, fontsize=18)
 
-    axs[0, 0].plot(data["time"], data[vars[0]])
-    axs[0, 0].set_title("Boiler Production", fontsize=14)
+    axs[0].plot(data["time"], data[vars[0]], label="Boiler")
+    axs[0].plot(data["time"], data[vars[1]], label="CHP")
+    axs[0].plot(data["time"], data[vars[2]], label="Electrolyzer")
+    axs[0].plot(data["time"], data[vars[3]], label="Heat Pump 1")
+    axs[0].plot(data["time"], data[vars[4]], label="Heat Pump 2")
+    axs[0].plot(data["time"], data[vars[5]], label="Qdot")
 
-    axs[0, 1].plot(data["time"], data[vars[1]])
-    axs[0, 1].set_title("CHP Production", fontsize=14)
+    axs[0].set_title("Production", fontsize=14)
+    axs[0].legend()
 
-    axs[1, 0].plot(data["time"], data[vars[2]])
-    axs[1, 0].set_title("Electrolyzer Production", fontsize=14)
+    axs[1].plot(data["time"], data[vars[6]])
+    axs[1].plot(data["time"], data[vars[7]], linestyle="-")
+    axs[1].set_title("Heatload", fontsize=14)
 
-    axs[2, 0].plot(data["time"], data[vars[3]], label="Heat Pump 1")
-    axs[2, 0].plot(data["time"], data[vars[4]], label="Heat Pump 2")
-    axs[2, 0].set_title("Heatpumps Production", fontsize=14)
-    axs[2, 0].legend()
-
-    axs[1, 1].plot(data["time"], data[vars[5]])
-    axs[1, 1].set_title("Qdot Production", fontsize=14)
-
-    axs[2, 1].plot(data["time"], data[vars[6]])
-    axs[2, 1].plot(data["time"], data[vars[7]], linestyle="-")
-    axs[2, 1].set_title("Heatload", fontsize=14)
-
-    axs[3, 0].plot(data["time"], data[vars[8]], label="T")
-    axs[3, 0].plot(data["time"], data[vars[9]], label="set T")
-    axs[3, 0].legend()
-    axs[3, 0].set_title("Temperature", fontsize=14)
+    axs[2].plot(data["time"], data[vars[8]], label="T")
+    axs[2].plot(data["time"], data[vars[9]], label="set T")
+    axs[2].legend()
+    axs[2].set_title("Temperature", fontsize=14)
 
     fig.tight_layout()
 
