@@ -228,8 +228,6 @@ def simulation(
             csv_filename = "results/" + "data/" + "results_" + str(scenario) + "_" + error_file
             df_res.to_csv(csv_filename)
 
-            plot(csv_filename)
-
             if make_plot:
                 plot(data_file=csv_filename)
 
