@@ -2,19 +2,19 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import parse
 import plotly.graph_objects as go
-import res_tools_flexible as res
+import modules.res_tools_flexible as res
 import numpy as np
 import os
 
-filenames = ["data/results_Scenario A_ErrorProfiles_input.csv",
-             "data/results_Scenario A_ErrorProfiles_input_Boiler_14_10_18.csv",
-             "data/results_Scenario A_ErrorProfiles_input_CHP_13_1_18.csv",
-             "data/results_Scenario B_ErrorProfiles_input.csv",
-             "data/results_Scenario B_ErrorProfiles_input_Boiler_14_10_18.csv",
-             "data/results_Scenario B_ErrorProfiles_input_CHP_13_1_18.csv",
-             "data/results_Scenario C_ErrorProfiles_input.csv",
-             "data/results_Scenario C_ErrorProfiles_input_Boiler_14_10_18.csv",
-             "data/results_Scenario C_ErrorProfiles_input_CHP_13_1_18.csv"]
+filenames = ["results/data/results_Scenario A_ErrorProfiles_input.csv",
+             "results/data/results_Scenario A_ErrorProfiles_input_Boiler_14_10_18.csv",
+             "results/data/results_Scenario A_ErrorProfiles_input_CHP_13_1_18.csv",
+             "results/data/results_Scenario B_ErrorProfiles_input.csv",
+             "results/data/results_Scenario B_ErrorProfiles_input_Boiler_14_10_18.csv",
+             "results/data/results_Scenario B_ErrorProfiles_input_CHP_13_1_18.csv",
+             "results/data/results_Scenario C_ErrorProfiles_input.csv",
+             "results/data/results_Scenario C_ErrorProfiles_input_Boiler_14_10_18.csv",
+             "results/data/results_Scenario C_ErrorProfiles_input_CHP_13_1_18.csv"]
 
 vars = ['controller.calc_Qdot_production.u_Qdot_Boiler',
         'controller.calc_Qdot_production.u_Qdot_CHP',
@@ -43,10 +43,10 @@ def temperature_control(scenarios=["A", "B", "C"], errors=["Boiler_14_10_18", "C
         temp_set: string. Name of the set temperature variable in the model. Default: "controller.u_T_HeatGrid_FF_set".
         """
 
-    if not os.path.isdir("data"):
-        os.mkdir("data")
+    #if not os.path.isdir("data"):
+    #    os.mkdir("data")
 
-    os.chdir("data")
+    os.chdir("results/data")
     files_list = os.listdir()
     csv_list = []
     for file in files_list:
@@ -72,6 +72,7 @@ def temperature_control(scenarios=["A", "B", "C"], errors=["Boiler_14_10_18", "C
         scenarios_dict[scenario] = temp_dict
 
     fig, axs = plt.subplots(4, 1, figsize=(15, 8))
+
     colors = {}
     colors[0] = ["b-", "b--", "b:", "r-"]
     colors[1] = ["g-", "g--", "g:", "r-"]
@@ -103,9 +104,9 @@ def temperature_control(scenarios=["A", "B", "C"], errors=["Boiler_14_10_18", "C
     fig.legend()
 
     fig.tight_layout()
-    plt.savefig("temperature_control.png")
+    plt.savefig("results/data/temperature_control.png")
 
-def resilience_box_plot(data_file="data/resilience.csv", scenarios=["A", "B", "C"],
+def resilience_box_plot(data_file="results/data/resilience.csv", scenarios=["A", "B", "C"],
                         errors=["Boiler_14_10_18", "CHP_13_1_18"]):
     """Saves a box plot of the resilience indices for the different scenarios, considering several possible errors, and
     the corresponding values are saved as a csv file as well.
@@ -133,26 +134,31 @@ def resilience_box_plot(data_file="data/resilience.csv", scenarios=["A", "B", "C
         RI_values[s] = error_dict
     RI_df = pd.DataFrame(data=RI_values)
 
-    Scenario_A = RI_df["A"]
-    Scenario_B = RI_df["B"]
-    Scenario_C = RI_df["C"]
+    scenarios_data = []
+    xticks_labels = []
+    xticks = []
 
-    columns = [Scenario_A, Scenario_B, Scenario_C]
+    for ii in range(len(scenarios)):
+        scenarios_data.append(RI_df[scenarios[ii]])
+        xticks_labels.append("Scenario " + scenarios[ii])
+        xticks.append(ii+1)
+
     fig, ax = plt.subplots()
-    ax.boxplot(columns)
-    plt.xticks([1, 2, 3], ["Scenario A", "Scenario B", "Scenario C"], rotation=10)
+    ax.boxplot(scenarios_data)
+    plt.xticks(xticks, xticks_labels, rotation=10)
     plt.ylabel("Resilience Index")
     plt.title("Resilience Index")
     plt.tight_layout()
     plt.savefig("resilience_boxplot.png")
 
     # And we also save the new data frame with averages as well
-    RI_df.loc[len(RI_df.index)] = [RI_df["A"].mean(), RI_df["B"].mean(), RI_df["C"].mean()]
-    RI_df.index = ["No-error", "Boiler_14_10_18", "CHP_13_1_18", "Average"]
-    RI_df.to_csv("Scenarios_resilience_w_average.csv")
+    #RI_df.loc[len(RI_df.index)] = [RI_df["A"].mean(), RI_df["B"].mean(), RI_df["C"].mean()]
+    #RI_df.index = ["No-error", "Boiler_14_10_18", "CHP_13_1_18", "Average"]
+    #RI_df.to_csv("Scenarios_resilience_w_average.csv")
 
 
-def separate_plots(filename="data/results_Scenario A_ErrorProfiles_input.csv", vars=vars, scenarios=["A", "B", "C"]):
+def separate_plots(filename="results/data/results_Scenario A_ErrorProfiles_input.csv", vars=vars,
+                   scenarios=["A", "B", "C"]):
     """Saves separate plots for the heatload (with and without scaling), the temperature (real and set temperatures) and
      the production of the different generators.
 
@@ -216,8 +222,8 @@ def separate_plots(filename="data/results_Scenario A_ErrorProfiles_input.csv", v
     plt.savefig("production_plot" + title.replace(" ", "_") + ".png")
     plt.clf()
 
-def plot(data_file="data/results_Scenario A_ErrorProfiles_input.csv",
-         vars=vars, scenarios=["A", "B", "C"], show=True):
+def plot(data_file="results/data/results_Scenario A_ErrorProfiles_input.csv",
+         vars=vars, scenarios=["A", "B", "C"]):
     """
     Function that plots every output variable in a separate subplot for a specific scenario and
      saves the plot as a png file with a name indicating the parameter scenario and error file
@@ -251,14 +257,15 @@ def plot(data_file="data/results_Scenario A_ErrorProfiles_input.csv",
     axs[0].plot(data["time"], data[vars[2]], label="Electrolyzer")
     axs[0].plot(data["time"], data[vars[3]], label="Heat Pump 1")
     axs[0].plot(data["time"], data[vars[4]], label="Heat Pump 2")
-    axs[0].plot(data["time"], data[vars[5]], label="Qdot")
 
     axs[0].set_title("Production", fontsize=14)
     axs[0].legend()
 
-    axs[1].plot(data["time"], data[vars[6]])
-    axs[1].plot(data["time"], data[vars[7]], linestyle="-")
+    axs[1].plot(data["time"], data[vars[5]], label="Qdot")
+    axs[1].plot(data["time"], data[vars[7]], label="Heatload")
+    axs[1].plot(data["time"], data[vars[6]], linestyle="-", label="Scaled Heatload")
     axs[1].set_title("Heatload", fontsize=14)
+    axs[1].legend()
 
     axs[2].plot(data["time"], data[vars[8]], label="T")
     axs[2].plot(data["time"], data[vars[9]], label="set T")
@@ -267,7 +274,7 @@ def plot(data_file="data/results_Scenario A_ErrorProfiles_input.csv",
 
     fig.tight_layout()
 
-    plt.savefig("data/" + title.replace(" ", "_") + ".png")
+    plt.savefig("results/data/" + title.replace(" ", "_") + ".png")
 
 
 def getting_data_radar_chart():
@@ -343,6 +350,3 @@ def radar_chart(scenarios = ["Scenario A", "Scenario B", "Scenario C", "Scenario
 
     fig.write_image("radar_chart_exp.png")  # specifically kaleido v0.1.0.post1 was required for this line
 
-if __name__ == '__main__':
-
-    radar_chart()
