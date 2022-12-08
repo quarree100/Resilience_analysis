@@ -332,9 +332,126 @@ def plot_results(esys):
 
 
 def calculate_oemof_model(
-        simulation_period=("01-01", 14),
+        simulation_period=("01-01", 365),
+        factor_emission_reduction=0.5,
 ):
-    pass
+    # more or less fixed input paths (no function attributes)
+
+    path_oemof = os.path.join("..", "input", "solph")
+    path_common = os.path.join("..", "input", "common")
+
+    tech_param = os.path.join(path_oemof, "parameter.yaml")
+
+    timeseries = pd.read_csv(os.path.join(path_oemof, "Timeseries_15min.csv"),
+                             sep=",")
+
+    timeseries.index = pd.DatetimeIndex(
+        pd.date_range(start="01-01-2022", freq="15min", periods=8760 * 4)
+    )
+
+    with open(tech_param) as file:
+        tech_param = yaml.safe_load(file)
+
+    # Create and solve oemof-solph model
+
+    start = pd.to_datetime(simulation_period[0], yearfirst=False)
+    end = start + pd.Timedelta(simulation_period[1], unit="D")
+    time_slice = timeseries[start:end]
+
+    esys = create_solph_model(
+        techparam=tech_param,
+        timeindex=time_slice.index,
+        timeseries=time_slice,
+    )
+    esys = solve_model(esys)
+
+    # print and plot some results
+    results = esys.results["main"]
+
+    heat_gen = solph.views.node(results, "heat_generation")
+    heat_store = solph.views.node(results, "thermal_storage")
+    elec = solph.views.node(results, "electricity")
+
+    print(heat_gen["sequences"].sum())
+    print(heat_store["sequences"].sum())
+    print(elec["sequences"].sum())
+
+    fig1, ax = plt.subplots(figsize=(10, 5))
+    heat_gen["sequences"].plot(ax=ax)
+    plt.show()
+
+    fig2, ax = plt.subplots(figsize=(10, 5))
+    heat_store["sequences"].plot(ax=ax)
+    plt.show()
+
+    fig3, ax = plt.subplots(figsize=(10, 5))
+    elec["sequences"].plot(ax=ax)
+    plt.show()
+
+    # ################################
+
+    # what is the minimum possible emission value?
+    esys_emission = create_solph_model(
+        techparam=tech_param,
+        timeindex=time_slice.index,
+        timeseries=time_slice,
+        weight_cost_emission=1,
+    )
+    esys_emission = solve_model(esys_emission)
+    emission_min = esys_emission.results["meta"][
+        "objective"]  # emission in [kg]
+
+    # what is the emission value in the cost optimal case?
+    esys_cost = create_solph_model(
+        techparam=tech_param,
+        timeindex=time_slice.index,
+        timeseries=time_slice,
+        weight_cost_emission=0,
+    )
+
+    esys_max = solve_model(esys_cost)
+    emission_max = esys_max.results["meta"]["emission_value"]
+    cost_max = esys_max.results["meta"]["objective"]
+
+    esys_min = solve_model(esys_cost, emission_limit=emission_min + 0.1)
+    costs_min = esys_min.results["meta"]["objective"]
+
+    emission_limit_mid = \
+        factor_emission_reduction * (
+                    emission_max - emission_min) + emission_min
+    esys_mid = solve_model(esys_cost, emission_limit=emission_limit_mid)
+    emission_mid = esys_mid.results["meta"]["emission_value"]
+    costs_mid = esys_mid.results["meta"]["objective"]
+
+    # plots
+    fig, ax = plt.subplots()
+    ax.scatter(emission_max, cost_max, color='r')
+    ax.scatter(emission_min, costs_min, color='b')
+    ax.scatter(emission_mid, costs_mid, color='tab:orange')
+    ax.set_xlabel('Emission [kg]')
+    ax.set_ylabel('Costs [€]')
+    ax.grid()
+    # ax.set_title('scatter plot')
+    plt.show()
+
+
+def prepare_schedules(df):
+    """
+    This function should prepare the oemof schedules for the modelica input.
+
+    Parameters
+    ----------
+    df : pandas.DateFrame
+        Table with the results of the oemof-solph optimization.
+
+    Returns
+    -------
+    pandas.DateFrame : With the timeseries format for the modelica input.
+    """
+
+    df_modelica = pd.DataFrame()
+
+    return df_modelica
 
 
 if __name__ == '__main__':
