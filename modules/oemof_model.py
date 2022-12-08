@@ -1,6 +1,7 @@
 import oemof.solph as solph
 import yaml
 import os
+import math
 import pandas as pd
 from oemof.tools import logger
 from oemof.network.graph import create_nx_graph
@@ -18,6 +19,8 @@ def create_solph_model(
         timeseries,
         capacity_boiler=3000,
         capacity_chp_el=400,
+        eta_el_chp=0.38,
+        eta_th_chp=0.55,
         capacity_hp_air=1000,
         capacity_hp_ground=500,
         capacity_electrlysis_el=250,
@@ -145,8 +148,8 @@ def create_solph_model(
             b_heat_generation: solph.Flow()
         },
         conversion_factors={
-            b_elec: techparam["chp"]["efficiency_el"],
-            b_heat_generation: techparam["chp"]["efficiency_th"],
+            b_elec: eta_el_chp,
+            b_heat_generation: eta_th_chp,
         }
     )
 
@@ -282,8 +285,6 @@ def solve_model(energysystem, emission_limit=1000000000):
                 cmdline_options=solver_cmdline_options
                 )
 
-    logging.info("Store the energy system with the results.")
-
     # The processing module of the outputlib can be used to extract the results
     # from the model transfer them into a homogeneous structured dictionary.
 
@@ -336,6 +337,7 @@ def calculate_oemof_model(
         simulation_period=("01-01-2022", 365),
         factor_emission_reduction=0.5,
         path_oemof=os.path.join("input", "solph"),
+        path_common=os.path.join("input", "common"),
         show_plots=True,
 ):
     """
@@ -364,9 +366,36 @@ def calculate_oemof_model(
     -------
 
     """
-    # more or less fixed input paths (no function attributes)
+
+    dim_sc = pd.read_csv(os.path.join(
+        path_common, "dimension_scenarios", dimension_scenario + ".csv"),
+        index_col=0,
+    )
+
+    volumen_tes = \
+        (0.5 * dim_sc.loc["d_tes", "Value"]) ** 2 * math.pi * \
+        dim_sc.loc["h_tes", "Value"]
+
+    cap_hp_air = dim_sc.loc["ScaleFactor_HP1", "Value"] * 500
+
+    cap_hp_ground = dim_sc.loc["ScaleFactor_HP2", "Value"] * 500
+
+    dim_kwargs = {
+        "capacity_boiler": dim_sc.loc["capQ_th_boiler", "Value"],
+        "capacity_chp_el": dim_sc.loc["capP_el_chp", "Value"],
+        "capacity_hp_air": cap_hp_air,
+        "capacity_hp_ground": cap_hp_ground,
+        "capacity_electrlysis_el": dim_sc.loc["capP_el_electrolyser", "Value"],
+        "capacity_pv": dim_sc.loc["capP_el_pv", "Value"],
+        "capacity_thermal_storage_m3": volumen_tes,
+        "eta_el_chp": dim_sc.loc["eta_el_chp", "Value"],
+        "eta_th_chp": dim_sc.loc["eta_th_chp", "Value"],
+    }
 
     tech_param = os.path.join(path_oemof, "parameter.yaml")
+
+    with open(tech_param) as file:
+        tech_param = yaml.safe_load(file)
 
     timeseries = pd.read_csv(os.path.join(path_oemof, "Timeseries_15min.csv"),
                              sep=",")
@@ -374,9 +403,6 @@ def calculate_oemof_model(
     timeseries.index = pd.DatetimeIndex(
         pd.date_range(start="01-01-2022", freq="15min", periods=8760 * 4)
     )
-
-    with open(tech_param) as file:
-        tech_param = yaml.safe_load(file)
 
     # Create and solve oemof-solph model
 
@@ -393,6 +419,7 @@ def calculate_oemof_model(
         timeindex=time_slice.index,
         timeseries=time_slice,
         weight_cost_emission=1,
+        **dim_kwargs
     )
     esys_emission = solve_model(esys_emission)
     emission_min = esys_emission.results["meta"][
@@ -407,6 +434,7 @@ def calculate_oemof_model(
         timeindex=time_slice.index,
         timeseries=time_slice,
         weight_cost_emission=0,
+        **dim_kwargs
     )
 
     esys_max = solve_model(esys_cost)
@@ -445,8 +473,19 @@ def calculate_oemof_model(
 
     th_storage = solph.views.node(results, "thermal_storage")["sequences"]
     boiler = solph.views.node(results, "gas_boiler")["sequences"]
+    ely = solph.views.node(results, "electrolysis")["sequences"]
+    chp = solph.views.node(results, "chp")["sequences"]
+    hp_air = solph.views.node(results, "heatpump_air")["sequences"]
+    hp_ground = solph.views.node(results, "heatpump_ground")["sequences"]
 
-    df_restuls = pd.concat([boiler, th_storage], axis=1)
+    list_comps = [boiler, chp, hp_air, hp_ground, ely, th_storage]
+
+    df_restuls = pd.concat(list_comps, axis=1)
+
+    if show_plots:
+        for comp in list_comps:
+            comp.plot()
+            plt.show()
 
     return df_restuls
 

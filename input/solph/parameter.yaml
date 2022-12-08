@@ -15,8 +15,6 @@ gas_boiler:
   efficiency: 0.85  #
   minimum_load: 0.2  #
 chp:
-  efficiency_el: 0.38  # 
-  efficiency_th: 0.55  #
   minimum_load: 0.5
 electrolysis:
   efficiency_h2: 0.6  #

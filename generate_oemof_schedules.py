@@ -4,7 +4,7 @@ import modules.oemof_model as om
 # Input
 
 dimension_scenario = "Scenario-A"
-simulation_period = ("01-01-2022", 10)
+simulation_period = ("01-01-2022", 5)
 factor_emission_reduction = 0.5
 path_oemof = os.path.join("input", "solph")
 
@@ -22,8 +22,16 @@ schedules = om.calculate_oemof_model(
     path_oemof=path_oemof,
 )
 
-schedules.to_csv(os.path.join("results", "oemof", scenario_name + ".csv"))
+# export oemof results
+schedules.to_csv(os.path.join("results", "oemof_raw", scenario_name + ".csv"))
 
+# create schedules for modelica (function needs to be done)
+# TODO : complete function
 schedules_for_modelica = om.prepare_schedules(schedules)
 
-schedules.to_csv("")
+# export schedules
+schedules_for_modelica.to_csv(
+    os.path.join("results", "modelica_schedules", scenario_name + ".csv")
+)
+
+print("finished.")
