@@ -332,13 +332,39 @@ def plot_results(esys):
 
 
 def calculate_oemof_model(
-        simulation_period=("01-01", 365),
+        dimension_scenario,
+        simulation_period=("01-01-2022", 365),
         factor_emission_reduction=0.5,
+        path_oemof=os.path.join("input", "solph"),
+        show_plots=True,
 ):
-    # more or less fixed input paths (no function attributes)
+    """
+    Calculates the oemof-solph model and return the unit commitment
+    schedule for the heat generation units.
 
-    path_oemof = os.path.join("..", "input", "solph")
-    path_common = os.path.join("..", "input", "common")
+    For the technical data the file `parameter.yaml` is used in the
+    oemof input data folder.
+
+    As timeseries, the `Timeseries_15min.csv` of the oemof input folder
+    is used.
+
+    Parameters
+    ----------
+    simulation_period : tuple
+        Start date and length of period in days
+    factor_emission_reduction : scalar
+        Factor that describes the relative emission reduction.
+        0 : cost optimal case
+        1 : emission optimal case
+    path_oemof
+        Path to the oemof input data folder
+    path_common
+        Path to the common input data folder
+    Returns
+    -------
+
+    """
+    # more or less fixed input paths (no function attributes)
 
     tech_param = os.path.join(path_oemof, "parameter.yaml")
 
@@ -358,39 +384,10 @@ def calculate_oemof_model(
     end = start + pd.Timedelta(simulation_period[1], unit="D")
     time_slice = timeseries[start:end]
 
-    esys = create_solph_model(
-        techparam=tech_param,
-        timeindex=time_slice.index,
-        timeseries=time_slice,
-    )
-    esys = solve_model(esys)
-
-    # print and plot some results
-    results = esys.results["main"]
-
-    heat_gen = solph.views.node(results, "heat_generation")
-    heat_store = solph.views.node(results, "thermal_storage")
-    elec = solph.views.node(results, "electricity")
-
-    print(heat_gen["sequences"].sum())
-    print(heat_store["sequences"].sum())
-    print(elec["sequences"].sum())
-
-    fig1, ax = plt.subplots(figsize=(10, 5))
-    heat_gen["sequences"].plot(ax=ax)
-    plt.show()
-
-    fig2, ax = plt.subplots(figsize=(10, 5))
-    heat_store["sequences"].plot(ax=ax)
-    plt.show()
-
-    fig3, ax = plt.subplots(figsize=(10, 5))
-    elec["sequences"].plot(ax=ax)
-    plt.show()
-
-    # ################################
-
     # what is the minimum possible emission value?
+
+    logging.info("Calculate minimum emission limit")
+
     esys_emission = create_solph_model(
         techparam=tech_param,
         timeindex=time_slice.index,
@@ -402,6 +399,9 @@ def calculate_oemof_model(
         "objective"]  # emission in [kg]
 
     # what is the emission value in the cost optimal case?
+
+    logging.info("Calculate maximum emission limit")
+
     esys_cost = create_solph_model(
         techparam=tech_param,
         timeindex=time_slice.index,
@@ -410,6 +410,7 @@ def calculate_oemof_model(
     )
 
     esys_max = solve_model(esys_cost)
+
     emission_max = esys_max.results["meta"]["emission_value"]
     cost_max = esys_max.results["meta"]["objective"]
 
@@ -418,21 +419,36 @@ def calculate_oemof_model(
 
     emission_limit_mid = \
         factor_emission_reduction * (
-                    emission_max - emission_min) + emission_min
+                emission_max - emission_min) + emission_min
+
+    logging.info("Calculate scenario with `factor_emission_reduction`")
+
     esys_mid = solve_model(esys_cost, emission_limit=emission_limit_mid)
+
     emission_mid = esys_mid.results["meta"]["emission_value"]
     costs_mid = esys_mid.results["meta"]["objective"]
 
     # plots
-    fig, ax = plt.subplots()
-    ax.scatter(emission_max, cost_max, color='r')
-    ax.scatter(emission_min, costs_min, color='b')
-    ax.scatter(emission_mid, costs_mid, color='tab:orange')
-    ax.set_xlabel('Emission [kg]')
-    ax.set_ylabel('Costs [€]')
-    ax.grid()
-    # ax.set_title('scatter plot')
-    plt.show()
+    if show_plots:
+        fig, ax = plt.subplots()
+        ax.scatter(emission_max, cost_max, color='r')
+        ax.scatter(emission_min, costs_min, color='b')
+        ax.scatter(emission_mid, costs_mid, color='tab:orange')
+        ax.set_xlabel('Emission [kg]')
+        ax.set_ylabel('Costs [€]')
+        ax.grid()
+        # ax.set_title('scatter plot')
+        plt.show()
+
+    # get results
+    results = esys_mid.results["main"]
+
+    th_storage = solph.views.node(results, "thermal_storage")["sequences"]
+    boiler = solph.views.node(results, "gas_boiler")["sequences"]
+
+    df_restuls = pd.concat([boiler, th_storage], axis=1)
+
+    return df_restuls
 
 
 def prepare_schedules(df):
