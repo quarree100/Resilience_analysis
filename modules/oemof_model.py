@@ -210,15 +210,18 @@ def create_solph_model(
 
     energysystem.add(hp_air, hp_ground, chp, boiler, ely)
 
-    storage_capa = capacity_thermal_storage_m3 * 30
+    # todo : replace the capacity calculation by a proper calculation
+    storage_capa = \
+        capacity_thermal_storage_m3 * \
+        techparam["thermal_storage"]["capacity_per_volume"]
 
     thermal_storage = solph.GenericStorage(
         label="thermal_storage",
         inputs={b_heat_generation: solph.Flow()},
         outputs={b_heat_storage_out: solph.Flow()},
         nominal_storage_capacity=storage_capa,
-        loss_rate=0.0001,
-        fixed_losses_relative=0.0002,
+        loss_rate=timeseries["TES_SOC_loss_factor"],
+        fixed_losses_relative=timeseries["TES_fix_loss_factor"],
     )
 
     grid_pump = solph.Transformer(
@@ -400,7 +403,7 @@ def calculate_oemof_model(
         tech_param = yaml.safe_load(file)
 
     timeseries = pd.read_csv(os.path.join(path_oemof, "Timeseries_15min.csv"),
-                             sep=",")
+                             sep=",", skiprows=[0])
 
     timeseries.index = pd.DatetimeIndex(
         pd.date_range(start="01-01-2022", freq="15min", periods=8760 * 4)

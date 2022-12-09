@@ -23,12 +23,10 @@ electrolysis:
   fullloadhours_max: 0
   minimum_load: 0.25
 heatpump_air:
-  cop: 3.0
   minimum_load: 0.25
 heatpump_ground:
   cop: 4.0
   minimum_load: 0.25
   fullloadhours_max: 2500
 thermal_storage:
-  absolute_loss: 0.001
-  relative_loss: 0.002
+  capacity_per_volume: 30  # [kWh/m³]
