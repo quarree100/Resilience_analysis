@@ -4,7 +4,7 @@ import modules.oemof_model as om
 # Input
 
 dimension_scenario = "Scenario-A"
-simulation_period = ("01-01-2022", 5)
+simulation_period = ("01-01-2022", 7)
 factor_emission_reduction = 0.5
 path_oemof = os.path.join("input", "solph")
 

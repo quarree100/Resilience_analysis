@@ -65,16 +65,14 @@ def create_solph_model(
     )
 
     var_costs_elec = \
-        weight_cost_emission * techparam["electricity_source"][
-            "emission_factor"] + \
-        (1 - weight_cost_emission) * techparam["electricity_source"][
-            "variable_costs"]
+        weight_cost_emission * timeseries["Emission_factor_buy"].values + \
+        (1 - weight_cost_emission) * timeseries["Electricity_cost_buy"].values
 
     elec_source = solph.Source(
         label="electricity_grid",
         outputs={b_elec: solph.Flow(
             variable_costs=var_costs_elec,
-            emission_factor=techparam["electricity_source"]["emission_factor"],
+            emission_factor=timeseries["Emission_factor_buy"],
         )}
     )
 
@@ -95,16 +93,14 @@ def create_solph_model(
     )
 
     var_costs_elec_sell = \
-        weight_cost_emission * techparam["electricity_sell"][
-            "emission_factor"] + \
-        (1 - weight_cost_emission) * techparam["electricity_sell"][
-            "variable_costs"]
+        weight_cost_emission * timeseries["Emission_factor_sell"].values + \
+        (1 - weight_cost_emission) * timeseries["Electricity_cost_sell"].values
 
     elec_sell = solph.Sink(
         label="elec_sell",
         inputs={b_elec: solph.Flow(
             variable_costs=var_costs_elec_sell,
-            emission_factor=techparam["electricity_sell"]["emission_factor"],
+            emission_factor=timeseries["Emission_factor_sell"],
         )}
     )
 
@@ -464,13 +460,15 @@ def calculate_oemof_model(
     # plots
     if show_plots:
         fig, ax = plt.subplots()
-        ax.scatter(emission_max, cost_max, color='r')
-        ax.scatter(emission_min, costs_min, color='b')
-        ax.scatter(emission_mid, costs_mid, color='tab:orange')
+        ax.scatter(emission_max, cost_max, color='r', label="cost optimal")
+        ax.scatter(emission_min, costs_min, color='b', label="emission optimal")
+        ax.scatter(emission_mid, costs_mid, color='tab:orange',
+                   label="selected solution")
         ax.set_xlabel('Emission [kg]')
         ax.set_ylabel('Costs [€]')
         ax.grid()
         # ax.set_title('scatter plot')
+        plt.legend()
         plt.show()
 
     # get results
