@@ -176,17 +176,18 @@ def create_solph_model(
     hp_air = solph.Transformer(
         label="heatpump_air",
         inputs={
-            b_elec: solph.Flow(
+            b_elec: solph.Flow()
+        },
+        outputs={
+            b_heat_generation: solph.Flow(
                 nominal_value=capacity_hp_air,
                 min=techparam["heatpump_air"]["minimum_load"],
                 nonconvex=solph.options.NonConvex(),
-            )
-        },
-        outputs={
-            b_heat_generation: solph.Flow(),
+                max=timeseries["Maximum-Power_Heatpump_air"],
+            ),
         },
         conversion_factors={
-            b_heat_generation: techparam["heatpump_air"]["cop"],
+            b_heat_generation: timeseries["COP_Heatpump_air"],
         }
     )
 
@@ -376,9 +377,10 @@ def calculate_oemof_model(
         (0.5 * dim_sc.loc["d_tes", "Value"]) ** 2 * math.pi * \
         dim_sc.loc["h_tes", "Value"]
 
-    cap_hp_air = dim_sc.loc["ScaleFactor_HP1", "Value"] * 500
+    cap_hp_air = dim_sc.loc["ScaleFactor_HP1", "Value"] * 500 +\
+                 dim_sc.loc["ScaleFactor_HP2", "Value"] * 500
 
-    cap_hp_ground = dim_sc.loc["ScaleFactor_HP2", "Value"] * 500
+    cap_hp_ground = 0
 
     dim_kwargs = {
         "capacity_boiler": dim_sc.loc["capQ_th_boiler", "Value"],
