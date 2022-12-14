@@ -1,16 +1,17 @@
 import pandas as pd
 import numpy as np
 import os
+from modules.plotting_results import resilience_box_plot
 
-filenames = ["data/results_Scenario A_ErrorProfiles_input.csv",
-             "data/results_Scenario A_ErrorProfiles_input_Boiler_14_10_18.csv",
-             "data/results_Scenario A_ErrorProfiles_input_CHP_13_1_18.csv",
-             "data/results_Scenario B_ErrorProfiles_input.csv",
-             "data/results_Scenario B_ErrorProfiles_input_Boiler_14_10_18.csv",
-             "data/results_Scenario B_ErrorProfiles_input_CHP_13_1_18.csv",
-             "data/results_Scenario C_ErrorProfiles_input.csv",
-             "data/results_Scenario C_ErrorProfiles_input_Boiler_14_10_18.csv",
-             "data/results_Scenario C_ErrorProfiles_input_CHP_13_1_18.csv"]
+filenames = ["results/data/results_Scenario A_ErrorProfiles_input.csv",
+             "results/data/results_Scenario A_ErrorProfiles_input_Boiler_14_10_18.csv",
+             "results/data/results_Scenario A_ErrorProfiles_input_CHP_13_1_18.csv",
+             "results/data/results_Scenario B_ErrorProfiles_input.csv",
+             "results/data/results_Scenario B_ErrorProfiles_input_Boiler_14_10_18.csv",
+             "results/data/results_Scenario B_ErrorProfiles_input_CHP_13_1_18.csv",
+             "results/data/results_Scenario C_ErrorProfiles_input.csv",
+             "results/data/results_Scenario C_ErrorProfiles_input_Boiler_14_10_18.csv",
+             "results/data/results_Scenario C_ErrorProfiles_input_CHP_13_1_18.csv"]
 
 Tband = 5  # this is +/- 5 as a tolerance band
 dTnorm = 5  # [C] # same as the Tband?
@@ -73,11 +74,19 @@ def prepare_dataframe(filename):
     return df
 
 
-def calculate_resilience(filenames=filenames):
+def calculate_resilience(make_boxplot=True, scenarios=["A", "B", "C"], errors=["Boiler_14_10_18", "CHP_13_1_18"]):
+    os.chdir("results/data")
+
+    files_list = os.listdir()
+    csv_list = []
+    for file in files_list:
+        if ".CSV" in file:
+            csv_list.append(file)
+
     resilience_info = {}
 
-    for filename in filenames:
-        df = prepare_dataframe(filename)
+    for file in csv_list:
+        df = prepare_dataframe(file)
 
         t_dis_end = df.loc[df["dx"] == df["dx"].max()].index.values[0]  # time index of max deviation point
         t_dis_start = df["dx"].ne(0).idxmax()  # first non-zero element´s time index
@@ -88,14 +97,17 @@ def calculate_resilience(filenames=filenames):
         PL = performance_loss(df, dtnorm=dtnorm)
         RI = resilience_index(MD, RT, PL)
 
-        resilience_info.update(({filename: [MD, RT, PL, RI]}))
+        resilience_info.update(({file: [MD, RT, PL, RI]}))
 
     index = ["MD", "RT", "PL", "RI"]
     resilience = pd.DataFrame(resilience_info, index=index)
     # resilience["Average"] = resilience.mean(axis=1)
 
-    path = os.getcwd() + "/data"
-    if not os.path.isdir(path):
-        os.mkdir(path)
-    csv_filename = "data/resilience.csv"
+    #path = os.getcwd() + "/data"
+    #if not os.path.isdir(path):
+    #    os.mkdir(path)
+    csv_filename = "results/data/resilience.csv"
     resilience.to_csv(csv_filename)
+
+    if make_boxplot:
+        resilience_box_plot(csv_filename, scenarios=scenarios, errors=errors)
