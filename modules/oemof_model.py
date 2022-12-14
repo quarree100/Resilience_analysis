@@ -1,6 +1,7 @@
 import oemof.solph as solph
 import yaml
 import os
+import math
 import pandas as pd
 from oemof.tools import logger
 from oemof.network.graph import create_nx_graph
@@ -18,6 +19,8 @@ def create_solph_model(
         timeseries,
         capacity_boiler=3000,
         capacity_chp_el=400,
+        eta_el_chp=0.38,
+        eta_th_chp=0.55,
         capacity_hp_air=1000,
         capacity_hp_ground=500,
         capacity_electrlysis_el=250,
@@ -62,16 +65,14 @@ def create_solph_model(
     )
 
     var_costs_elec = \
-        weight_cost_emission * techparam["electricity_source"][
-            "emission_factor"] + \
-        (1 - weight_cost_emission) * techparam["electricity_source"][
-            "variable_costs"]
+        weight_cost_emission * timeseries["Emission_factor_buy"].values + \
+        (1 - weight_cost_emission) * timeseries["Electricity_cost_buy"].values
 
     elec_source = solph.Source(
         label="electricity_grid",
         outputs={b_elec: solph.Flow(
             variable_costs=var_costs_elec,
-            emission_factor=techparam["electricity_source"]["emission_factor"],
+            emission_factor=timeseries["Emission_factor_buy"],
         )}
     )
 
@@ -92,16 +93,14 @@ def create_solph_model(
     )
 
     var_costs_elec_sell = \
-        weight_cost_emission * techparam["electricity_sell"][
-            "emission_factor"] + \
-        (1 - weight_cost_emission) * techparam["electricity_sell"][
-            "variable_costs"]
+        weight_cost_emission * timeseries["Emission_factor_sell"].values + \
+        (1 - weight_cost_emission) * timeseries["Electricity_cost_sell"].values
 
     elec_sell = solph.Sink(
         label="elec_sell",
         inputs={b_elec: solph.Flow(
             variable_costs=var_costs_elec_sell,
-            emission_factor=techparam["electricity_sell"]["emission_factor"],
+            emission_factor=timeseries["Emission_factor_sell"],
         )}
     )
 
@@ -145,8 +144,8 @@ def create_solph_model(
             b_heat_generation: solph.Flow()
         },
         conversion_factors={
-            b_elec: techparam["chp"]["efficiency_el"],
-            b_heat_generation: techparam["chp"]["efficiency_th"],
+            b_elec: eta_el_chp,
+            b_heat_generation: eta_th_chp,
         }
     )
 
@@ -173,17 +172,18 @@ def create_solph_model(
     hp_air = solph.Transformer(
         label="heatpump_air",
         inputs={
-            b_elec: solph.Flow(
+            b_elec: solph.Flow()
+        },
+        outputs={
+            b_heat_generation: solph.Flow(
                 nominal_value=capacity_hp_air,
                 min=techparam["heatpump_air"]["minimum_load"],
                 nonconvex=solph.options.NonConvex(),
-            )
-        },
-        outputs={
-            b_heat_generation: solph.Flow(),
+                max=timeseries["Maximum-Power_Heatpump_air"],
+            ),
         },
         conversion_factors={
-            b_heat_generation: techparam["heatpump_air"]["cop"],
+            b_heat_generation: timeseries["COP_Heatpump_air"],
         }
     )
 
@@ -206,15 +206,18 @@ def create_solph_model(
 
     energysystem.add(hp_air, hp_ground, chp, boiler, ely)
 
-    storage_capa = capacity_thermal_storage_m3 * 30
+    # todo : replace the capacity calculation by a proper calculation
+    storage_capa = \
+        capacity_thermal_storage_m3 * \
+        techparam["thermal_storage"]["capacity_per_volume"]
 
     thermal_storage = solph.GenericStorage(
         label="thermal_storage",
         inputs={b_heat_generation: solph.Flow()},
         outputs={b_heat_storage_out: solph.Flow()},
         nominal_storage_capacity=storage_capa,
-        loss_rate=0.0001,
-        fixed_losses_relative=0.0002,
+        loss_rate=timeseries["TES_SOC_loss_factor"],
+        fixed_losses_relative=timeseries["TES_fix_loss_factor"],
     )
 
     grid_pump = solph.Transformer(
@@ -282,8 +285,6 @@ def solve_model(energysystem, emission_limit=1000000000):
                 cmdline_options=solver_cmdline_options
                 )
 
-    logging.info("Store the energy system with the results.")
-
     # The processing module of the outputlib can be used to extract the results
     # from the model transfer them into a homogeneous structured dictionary.
 
@@ -332,9 +333,183 @@ def plot_results(esys):
 
 
 def calculate_oemof_model(
-        simulation_period=("01-01", 14),
+        dimension_scenario,
+        simulation_period=("01-01-2022", 365),
+        factor_emission_reduction=0.5,
+        path_oemof=os.path.join("input", "solph"),
+        path_common=os.path.join("input", "common"),
+        show_plots=True,
 ):
-    pass
+    """
+    Calculates the oemof-solph model and return the unit commitment
+    schedule for the heat generation units.
+
+    For the technical data the file `parameter.yaml` is used in the
+    oemof input data folder.
+
+    As timeseries, the `Timeseries_15min.csv` of the oemof input folder
+    is used.
+
+    Parameters
+    ----------
+    simulation_period : tuple
+        Start date and length of period in days
+    factor_emission_reduction : scalar
+        Factor that describes the relative emission reduction.
+        0 : cost optimal case
+        1 : emission optimal case
+    path_oemof
+        Path to the oemof input data folder
+    path_common
+        Path to the common input data folder
+    Returns
+    -------
+
+    """
+
+    dim_sc = pd.read_csv(os.path.join(
+        path_common, "dimension_scenarios", dimension_scenario + ".csv"),
+        index_col=0,
+    )
+
+    volumen_tes = \
+        (0.5 * dim_sc.loc["d_tes", "Value"]) ** 2 * math.pi * \
+        dim_sc.loc["h_tes", "Value"]
+
+    cap_hp_air = dim_sc.loc["ScaleFactor_HP1", "Value"] * 500 +\
+                 dim_sc.loc["ScaleFactor_HP2", "Value"] * 500
+
+    cap_hp_ground = 0
+
+    dim_kwargs = {
+        "capacity_boiler": dim_sc.loc["capQ_th_boiler", "Value"],
+        "capacity_chp_el": dim_sc.loc["capP_el_chp", "Value"],
+        "capacity_hp_air": cap_hp_air,
+        "capacity_hp_ground": cap_hp_ground,
+        "capacity_electrlysis_el": dim_sc.loc["capP_el_electrolyser", "Value"],
+        "capacity_pv": dim_sc.loc["capP_el_pv", "Value"],
+        "capacity_thermal_storage_m3": volumen_tes,
+        "eta_el_chp": dim_sc.loc["eta_el_chp", "Value"],
+        "eta_th_chp": dim_sc.loc["eta_th_chp", "Value"],
+    }
+
+    tech_param = os.path.join(path_oemof, "parameter.yaml")
+
+    with open(tech_param) as file:
+        tech_param = yaml.safe_load(file)
+
+    timeseries = pd.read_csv(os.path.join(path_oemof, "Timeseries_15min.csv"),
+                             sep=",", skiprows=[0])
+
+    timeseries.index = pd.DatetimeIndex(
+        pd.date_range(start="01-01-2022", freq="15min", periods=8760 * 4)
+    )
+
+    # Create and solve oemof-solph model
+
+    start = pd.to_datetime(simulation_period[0], yearfirst=False)
+    end = start + pd.Timedelta(simulation_period[1], unit="D")
+    time_slice = timeseries[start:end]
+
+    # what is the minimum possible emission value?
+
+    logging.info("Calculate minimum emission limit")
+
+    esys_emission = create_solph_model(
+        techparam=tech_param,
+        timeindex=time_slice.index,
+        timeseries=time_slice,
+        weight_cost_emission=1,
+        **dim_kwargs
+    )
+    esys_emission = solve_model(esys_emission)
+    emission_min = esys_emission.results["meta"][
+        "objective"]  # emission in [kg]
+
+    # what is the emission value in the cost optimal case?
+
+    logging.info("Calculate maximum emission limit")
+
+    esys_cost = create_solph_model(
+        techparam=tech_param,
+        timeindex=time_slice.index,
+        timeseries=time_slice,
+        weight_cost_emission=0,
+        **dim_kwargs
+    )
+
+    esys_max = solve_model(esys_cost)
+
+    emission_max = esys_max.results["meta"]["emission_value"]
+    cost_max = esys_max.results["meta"]["objective"]
+
+    esys_min = solve_model(esys_cost, emission_limit=emission_min + 0.1)
+    costs_min = esys_min.results["meta"]["objective"]
+
+    emission_limit_mid = \
+        factor_emission_reduction * (
+                emission_max - emission_min) + emission_min
+
+    logging.info("Calculate scenario with `factor_emission_reduction`")
+
+    esys_mid = solve_model(esys_cost, emission_limit=emission_limit_mid)
+
+    emission_mid = esys_mid.results["meta"]["emission_value"]
+    costs_mid = esys_mid.results["meta"]["objective"]
+
+    # plots
+    if show_plots:
+        fig, ax = plt.subplots()
+        ax.scatter(emission_max, cost_max, color='r', label="cost optimal")
+        ax.scatter(emission_min, costs_min, color='b', label="emission optimal")
+        ax.scatter(emission_mid, costs_mid, color='tab:orange',
+                   label="selected solution")
+        ax.set_xlabel('Emission [kg]')
+        ax.set_ylabel('Costs [€]')
+        ax.grid()
+        # ax.set_title('scatter plot')
+        plt.legend()
+        plt.show()
+
+    # get results
+    results = esys_mid.results["main"]
+
+    th_storage = solph.views.node(results, "thermal_storage")["sequences"]
+    boiler = solph.views.node(results, "gas_boiler")["sequences"]
+    ely = solph.views.node(results, "electrolysis")["sequences"]
+    chp = solph.views.node(results, "chp")["sequences"]
+    hp_air = solph.views.node(results, "heatpump_air")["sequences"]
+    hp_ground = solph.views.node(results, "heatpump_ground")["sequences"]
+
+    list_comps = [boiler, chp, hp_air, hp_ground, ely, th_storage]
+
+    df_restuls = pd.concat(list_comps, axis=1)
+
+    if show_plots:
+        for comp in list_comps:
+            comp.plot()
+            plt.show()
+
+    return df_restuls
+
+
+def prepare_schedules(df):
+    """
+    This function should prepare the oemof schedules for the modelica input.
+
+    Parameters
+    ----------
+    df : pandas.DateFrame
+        Table with the results of the oemof-solph optimization.
+
+    Returns
+    -------
+    pandas.DateFrame : With the timeseries format for the modelica input.
+    """
+
+    df_modelica = pd.DataFrame()
+
+    return df_modelica
 
 
 if __name__ == '__main__':
