@@ -237,7 +237,7 @@ def plot(data_file="results/data/results_Scenario A_ErrorProfiles_input.csv",
 
     data = pd.read_csv(data_file)
     data["fMU_PhyModel.temperature_HeatGrid_FF.T"] = data["fMU_PhyModel.temperature_HeatGrid_FF.T"] - 273.15
-    fig, axs = plt.subplots(4, 2, figsize=(12, 12))
+    fig, axs = plt.subplots(3, figsize=(12, 8))
 
     # filtering the scenario the data belongs to and setting it as pic title
     title = data_file.split("/")[1]
@@ -350,3 +350,62 @@ def radar_chart(scenarios = ["Scenario A", "Scenario B", "Scenario C", "Scenario
 
     fig.write_image("radar_chart_exp.png")  # specifically kaleido v0.1.0.post1 was required for this line
 
+def anlagen_table_convertor(scenarios=["A", "B", "C"], anlagentypen=["air_heat_pump", "air_heat_pump", "electrolyzer",
+        "BHKW (CHP)", "boiler"], brennstoff=["9: Netzstrom", "9: Netzstrom", "9: Netzstrom", "1: Gas", "1: Gas"],
+        ETA_ELECTROLYSER=0.75, ETA_BOILER=0.9, index=["0", "1", "2", "3", "4"], p_th_heat_pumps=500):
+    """ Takes the parameter values file for each scenario and generates a table with the Anlagentypen and their
+    info."""
+
+    table_info = {
+        "Index": index,
+        "Anlagentyp": anlagentypen,
+        "Brennstoff": brennstoff,
+        "p_fuel": np.zeros(len(index)),
+        "p_th": np.zeros(len(index)),
+        "p_el": np.zeros(len(index))}
+
+    files_list = os.listdir()
+    parameter_list = []
+    for file in files_list:
+        if "Parameter" in file:
+            parameter_list.append(file)
+
+    scenario = ""
+    for file in parameter_list:
+        for element in scenarios:
+            if element in file:
+                scenario = element
+        df = pd.read_csv(file, delimiter=";")
+        table = pd.DataFrame(table_info)
+
+        # electric power of chp
+        chp_cap_el = float(df[f"Scenario {scenario}"].loc[df["Parameter"] == "capP_el_chp"])
+        table.loc[table["Anlagentyp"] == "BHKW (CHP)", ["p_el"]] = chp_cap_el
+
+        # fuel required and thermic power of chp
+        chp_eta_el = float(df[f"Scenario {scenario}"].loc[df["Parameter"] == "eta_el_chp"])
+        chp_eta_th = float(df[f"Scenario {scenario}"].loc[df["Parameter"] == "eta_th_chp"])
+        p_fuel = chp_cap_el / chp_eta_el
+        table.loc[table["Anlagentyp"] == "BHKW (CHP)", ["p_fuel"]] = - p_fuel
+        table.loc[table["Anlagentyp"] == "BHKW (CHP)", ["p_th"]] = p_fuel * chp_eta_th
+
+        # electric power of electrolyzer
+        electrolyser_cap_el = float(df[f"Scenario {scenario}"].loc[df["Parameter"] == "capP_el_electrolyser"])
+        electrolyser_gas = electrolyser_cap_el * ETA_ELECTROLYSER
+        table.loc[table["Anlagentyp"] == "electrolyzer", ["p_el"]] = - electrolyser_cap_el
+        table.loc[table["Anlagentyp"] == "electrolyzer", ["p_th"]] = electrolyser_cap_el - electrolyser_gas
+        table.loc[table["Anlagentyp"] == "electrolyzer", ["p_fuel"]] = electrolyser_gas
+
+        # thermic power of boiler
+        boiler_cap_th = float(df[f"Scenario {scenario}"].loc[df["Parameter"] == "capQ_th_boiler"])
+        table.loc[table["Anlagentyp"] == "boiler", ["p_th"]] = boiler_cap_th
+        table.loc[table["Anlagentyp"] == "boiler", ["p_fuel"]] = - boiler_cap_th / ETA_BOILER
+
+        # heat pumps
+        table.loc[table["Anlagentyp"] == "air_heat_pump", ["p_th"]] = p_th_heat_pumps
+        hp1_eta = float(df[f"Scenario {scenario}"].loc[df["Parameter"] == "ScaleFactor_HP1"])
+        hp2_eta = float(df[f"Scenario {scenario}"].loc[df["Parameter"] == "ScaleFactor_HP2"])
+        table.loc[table["Anlagentyp"] == "air_heat_pump", ["p_el"]] = [p_th_heat_pumps * hp1_eta,
+                                                                       p_th_heat_pumps * hp2_eta]
+
+        table.to_csv(f"anlagen_infos_scenario_{scenario}.csv")

@@ -222,9 +222,12 @@ def simulation(
 
             df_res = pd.DataFrame(result).set_index("time")
 
-            path = os.getcwd() + "/data"
+            path = os.getcwd() + "/results"
             if not os.path.isdir(path):
                 os.mkdir(path)
+            os.chdir("results")
+            if not os.path.isdir("data"):
+                os.mkdir(os.getcwd() + "/data")
             csv_filename = "results/" + "data/" + "results_" + str(scenario) + "_" + error_file
             df_res.to_csv(csv_filename)
 

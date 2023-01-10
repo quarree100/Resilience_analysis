@@ -31,7 +31,7 @@ if __name__ == '__main__':
         store_results="results/data/",
         simulation_period=("01-01", 14),
         fmu_filename="FMU_Container.fmu",
-        schedule_profiles_filename="ScheduleProfiles_input.CSV",
+        schedule_profiles_filename="ScheduleProfiles_input.CSV"  #,
     )
 
     print("Simulation done.")
