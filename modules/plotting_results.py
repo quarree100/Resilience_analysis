@@ -237,7 +237,7 @@ def plot(data_file="results/data/results_Scenario A_ErrorProfiles_input.csv",
 
     data = pd.read_csv(data_file)
     data["fMU_PhyModel.temperature_HeatGrid_FF.T"] = data["fMU_PhyModel.temperature_HeatGrid_FF.T"] - 273.15
-    fig, axs = plt.subplots(4, 2, figsize=(12, 12))
+    fig, axs = plt.subplots(3, figsize=(12, 8))
 
     # filtering the scenario the data belongs to and setting it as pic title
     title = data_file.split("/")[1]
