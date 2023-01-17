@@ -228,6 +228,7 @@ def simulation(
             os.chdir("results")
             if not os.path.isdir("data"):
                 os.mkdir(os.getcwd() + "/data")
+            os.chdir("..")
             csv_filename = "results/" + "data/" + "results_" + str(scenario) + "_" + error_file
             df_res.to_csv(csv_filename)
 

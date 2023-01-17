@@ -46,7 +46,8 @@ def temperature_control(scenarios=["A", "B", "C"], errors=["Boiler_14_10_18", "C
     #if not os.path.isdir("data"):
     #    os.mkdir("data")
 
-    os.chdir("results/data")
+    os.chdir("results")
+    os.chdir("data")
     files_list = os.listdir()
     csv_list = []
     for file in files_list:
@@ -104,7 +105,8 @@ def temperature_control(scenarios=["A", "B", "C"], errors=["Boiler_14_10_18", "C
     fig.legend()
 
     fig.tight_layout()
-    plt.savefig("results/data/temperature_control.png")
+    os.chdir("..")
+    plt.savefig("temperature_control.png")
 
 def resilience_box_plot(data_file="results/data/resilience.csv", scenarios=["A", "B", "C"],
                         errors=["Boiler_14_10_18", "CHP_13_1_18"]):

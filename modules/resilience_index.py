@@ -75,7 +75,7 @@ def prepare_dataframe(filename):
 
 
 def calculate_resilience(make_boxplot=True, scenarios=["A", "B", "C"], errors=["Boiler_14_10_18", "CHP_13_1_18"]):
-    os.chdir("results/data")
+    os.chdir("data")
 
     files_list = os.listdir()
     csv_list = []
@@ -106,7 +106,8 @@ def calculate_resilience(make_boxplot=True, scenarios=["A", "B", "C"], errors=["
     #path = os.getcwd() + "/data"
     #if not os.path.isdir(path):
     #    os.mkdir(path)
-    csv_filename = "results/data/resilience.csv"
+    os.chdir("..")
+    csv_filename = "resilience.csv"
     resilience.to_csv(csv_filename)
 
     if make_boxplot:
