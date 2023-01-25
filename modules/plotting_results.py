@@ -30,7 +30,7 @@ vars = ['controller.calc_Qdot_production.u_Qdot_Boiler',
 
 def temperature_control(scenarios=["A", "B", "C"], errors=["Boiler_14_10_18", "CHP_13_1_18"],
                             temp_var="fMU_PhyModel.temperature_HeatGrid_FF.T",
-                            temp_set="controller.u_T_HeatGrid_FF_set"):
+                            temp_set="controller.u_T_HeatGrid_FF_set", store_results=None):
     """Plots a figure with a subplot for each scenario, where the temperatures for each error file are compared with
     each other and the set temperature.The last subplot shows all temperature variables for all scenarios together.
 
@@ -41,14 +41,11 @@ def temperature_control(scenarios=["A", "B", "C"], errors=["Boiler_14_10_18", "C
         temp_var: string. Name of the temperature variable in the model. Default:
         "fMU_PhyModel.temperature_HeatGrid_FF.T".
         temp_set: string. Name of the set temperature variable in the model. Default: "controller.u_T_HeatGrid_FF_set".
+        store_results: String of the path where the data is to be found and the plots to be saved.
+         Default: None.
         """
 
-    #if not os.path.isdir("data"):
-    #    os.mkdir("data")
-
-    os.chdir("results")
-    os.chdir("data")
-    files_list = os.listdir()
+    files_list = os.listdir(os.path.join(store_results, "data"))
     csv_list = []
     for file in files_list:
         if ".CSV" in file:
@@ -59,7 +56,7 @@ def temperature_control(scenarios=["A", "B", "C"], errors=["Boiler_14_10_18", "C
         temp_dict = {}
         for element in csv_list:
             if scenario in element:
-                df = pd.read_csv(element)
+                df = pd.read_csv(os.path.join(store_results, "data", element))
                 df[temp_var] = df[temp_var] - 273.15
                 info = scenario
                 temp_dict[info] = df[temp_var]
@@ -105,21 +102,22 @@ def temperature_control(scenarios=["A", "B", "C"], errors=["Boiler_14_10_18", "C
     fig.legend()
 
     fig.tight_layout()
-    os.chdir("..")
-    plt.savefig("temperature_control.png")
+    plt.savefig(os.path.join(store_results, "plots", "temperature_control.png"))
 
 def resilience_box_plot(data_file="results/data/resilience.csv", scenarios=["A", "B", "C"],
-                        errors=["Boiler_14_10_18", "CHP_13_1_18"]):
+                        errors=["Boiler_14_10_18", "CHP_13_1_18"], store_results=None):
     """Saves a box plot of the resilience indices for the different scenarios, considering several possible errors, and
     the corresponding values are saved as a csv file as well.
 
     Arguments:
         data_file: Name of the csv file with the resilience information (string). Default: "data/resilience.csv"
         scenarios: List of the possible scenarios (list of strings). Default: ["A", "B", "C"].
-        errors: List of the names of the considered errors (list of strings).
-        Default: ["Boiler_14_10_18", "CHP_13_1_18"]
+        errors: List of the names of the considered errors (list of strings).Default: ["Boiler_14_10_18",
+         "CHP_13_1_18"]
+        store_results: String of the path where the data is to be found and the plots to be saved.
+         Default: None.
         """
-    data = pd.read_csv(data_file)
+    data = pd.read_csv(os.path.join(store_results, "data", data_file))
     RI_values = {}
     for s in scenarios:
         error_dict = {}
@@ -151,7 +149,7 @@ def resilience_box_plot(data_file="results/data/resilience.csv", scenarios=["A",
     plt.ylabel("Resilience Index")
     plt.title("Resilience Index")
     plt.tight_layout()
-    plt.savefig("resilience_boxplot.png")
+    plt.savefig(os.path.join(store_results, "plots", "resilience_boxplot.png"))
 
     # And we also save the new data frame with averages as well
     #RI_df.loc[len(RI_df.index)] = [RI_df["A"].mean(), RI_df["B"].mean(), RI_df["C"].mean()]
@@ -159,7 +157,7 @@ def resilience_box_plot(data_file="results/data/resilience.csv", scenarios=["A",
     #RI_df.to_csv("Scenarios_resilience_w_average.csv")
 
 
-def separate_plots(filename="results/data/results_Scenario A_ErrorProfiles_input.csv", vars=vars,
+def separate_plots(filename="results_Scenario A_ErrorProfiles_input.csv", vars=vars,
                    scenarios=["A", "B", "C"]):
     """Saves separate plots for the heatload (with and without scaling), the temperature (real and set temperatures) and
      the production of the different generators.
@@ -224,7 +222,7 @@ def separate_plots(filename="results/data/results_Scenario A_ErrorProfiles_input
     plt.savefig("production_plot" + title.replace(" ", "_") + ".png")
     plt.clf()
 
-def plot(data_file="results/data/results_Scenario A_ErrorProfiles_input.csv",
+def plot(data_file="results_Scenario A_ErrorProfiles_input.csv", store_results=None,
          vars=vars, scenarios=["A", "B", "C"]):
     """
     Function that plots every output variable in a separate subplot for a specific scenario and
@@ -233,16 +231,18 @@ def plot(data_file="results/data/results_Scenario A_ErrorProfiles_input.csv",
 
     Arguments:
         data_file: Name of the csv file with the results (string)
+        store_results: String of the path where the data is to be found and the plots to be saved.
+         Default: None.
         vars: List of the output variable names (list of strings)
         scenarios: List of the possible dimension_scenarios (list of strings). Default: ["A", "B", "C"].
     """
 
-    data = pd.read_csv(data_file)
+    data = pd.read_csv(os.path.join(store_results, "data", data_file))
     data["fMU_PhyModel.temperature_HeatGrid_FF.T"] = data["fMU_PhyModel.temperature_HeatGrid_FF.T"] - 273.15
     fig, axs = plt.subplots(3, figsize=(12, 8))
 
     # filtering the scenario the data belongs to and setting it as pic title
-    title = data_file.split("/")[1]
+    title = data_file.strip("results")
     # for s in dimension_scenarios:
     #     if s in data_file:
     #         title = "Scenario " + s
@@ -250,7 +250,7 @@ def plot(data_file="results/data/results_Scenario A_ErrorProfiles_input.csv",
     # looking for the corresponding error file used and adding it to the pic title
     error = parse.search('ErrorProfiles_input{}.csv', data_file)
     if error:
-        title = title + " with error" + error.fixed[0].replace("_", " ", 2).replace("_", "-")
+        title = title.strip(".csv") + " with error" + error.fixed[0].replace("_", " ", 2).replace("_", "-")
 
     fig.suptitle(title, fontsize=18)
 
@@ -276,7 +276,8 @@ def plot(data_file="results/data/results_Scenario A_ErrorProfiles_input.csv",
 
     fig.tight_layout()
 
-    plt.savefig("results/data/" + title.replace(" ", "_") + ".png")
+    plot_name = title.replace(" ", "_") + ".png"
+    plt.savefig(os.path.join(store_results, "plots", plot_name))
 
 
 def getting_data_radar_chart():

@@ -74,10 +74,10 @@ def prepare_dataframe(filename):
     return df
 
 
-def calculate_resilience(make_boxplot=True, scenarios=["A", "B", "C"], errors=["Boiler_14_10_18", "CHP_13_1_18"]):
-    os.chdir("data")
+def calculate_resilience(make_boxplot=True, scenarios=["A", "B", "C"], errors=["Boiler_14_10_18", "CHP_13_1_18"],
+                         store_results=None):
 
-    files_list = os.listdir()
+    files_list = os.listdir(os.path.join(store_results, "data"))
     csv_list = []
     for file in files_list:
         if ".CSV" in file:
@@ -86,7 +86,7 @@ def calculate_resilience(make_boxplot=True, scenarios=["A", "B", "C"], errors=["
     resilience_info = {}
 
     for file in csv_list:
-        df = prepare_dataframe(file)
+        df = prepare_dataframe(os.path.join(store_results, "data", file))
 
         t_dis_end = df.loc[df["dx"] == df["dx"].max()].index.values[0]  # time index of max deviation point
         t_dis_start = df["dx"].ne(0).idxmax()  # first non-zero element´s time index
@@ -103,12 +103,8 @@ def calculate_resilience(make_boxplot=True, scenarios=["A", "B", "C"], errors=["
     resilience = pd.DataFrame(resilience_info, index=index)
     # resilience["Average"] = resilience.mean(axis=1)
 
-    #path = os.getcwd() + "/data"
-    #if not os.path.isdir(path):
-    #    os.mkdir(path)
-    os.chdir("..")
     csv_filename = "resilience.csv"
-    resilience.to_csv(csv_filename)
+    resilience.to_csv(os.path.join(store_results, "data", csv_filename))
 
     if make_boxplot:
-        resilience_box_plot(csv_filename, scenarios=scenarios, errors=errors)
+        resilience_box_plot(csv_filename, scenarios=scenarios, errors=errors, store_results=store_results)
