@@ -355,10 +355,13 @@ def radar_chart(scenarios = ["Scenario A", "Scenario B", "Scenario C", "Scenario
 
 def anlagen_table_convertor(scenarios=["A", "B", "C"], anlagentypen=["air_heat_pump", "air_heat_pump", "electrolyzer",
         "BHKW (CHP)", "boiler"], brennstoff=["9: Netzstrom", "9: Netzstrom", "9: Netzstrom", "1: Gas", "1: Gas"],
-        ETA_ELECTROLYSER=0.75, ETA_BOILER=0.9, index=["0", "1", "2", "3", "4"], p_th_heat_pumps=500):
+        ETA_ELECTROLYSER=0.75, ETA_BOILER=0.9, index=["0", "1", "2", "3", "4"], p_th_heat_pumps=500,
+                            parameter_file="Parameter_Values.csv"):
     """ Takes the parameter values file for each scenario and generates a table with the Anlagentypen and their
     info."""
 
+    #path = os.path.join("input", "common", "dimension_scenarios")
+    path = "C:\\Users\\Uni_Laptop_Cris\\Documents\\GitHub\\Resilience_analysis\\input\\common\\dimension_scenarios"
     table_info = {
         "Index": index,
         "Anlagentyp": anlagentypen,
@@ -367,20 +370,12 @@ def anlagen_table_convertor(scenarios=["A", "B", "C"], anlagentypen=["air_heat_p
         "p_th": np.zeros(len(index)),
         "p_el": np.zeros(len(index))}
 
-    files_list = os.listdir()
-    parameter_list = []
-    for file in files_list:
-        if "Parameter" in file:
-            parameter_list.append(file)
 
-    scenario = ""
-    for file in parameter_list:
-        for element in scenarios:
-            if element in file:
-                scenario = element
-        df = pd.read_csv(file, delimiter=";")
-        table = pd.DataFrame(table_info)
+    df = pd.read_csv(os.path.join(path, parameter_file), delimiter=";")
+    table = pd.DataFrame(table_info)
 
+    writer = pd.ExcelWriter(os.path.join(path, 'Diversity_info_scenarios.xlsx'))
+    for scenario in scenarios:
         # electric power of chp
         chp_cap_el = float(df[f"Scenario {scenario}"].loc[df["Parameter"] == "capP_el_chp"])
         table.loc[table["Anlagentyp"] == "BHKW (CHP)", ["p_el"]] = chp_cap_el
@@ -411,4 +406,10 @@ def anlagen_table_convertor(scenarios=["A", "B", "C"], anlagentypen=["air_heat_p
         table.loc[table["Anlagentyp"] == "air_heat_pump", ["p_el"]] = [p_th_heat_pumps * hp1_eta,
                                                                        p_th_heat_pumps * hp2_eta]
 
-        table.to_csv(f"anlagen_infos_scenario_{scenario}.csv")
+        #table.to_csv(f"anlagen_infos_scenario_{scenario}.csv")
+        table.to_excel(writer, f'Scenario {scenario}', index=True)
+        writer.save()
+
+if __name__ == '__main__':
+
+    anlagen_table_convertor()
