@@ -10,8 +10,7 @@ import itertools
 # installed systems found in /excel_data/Diversity Index weighted.xlsx
 
 def read_dimensions_and_weights(path_to_excel_file, sheet):
-    path_to_excel_file = path_to_excel_file
-    id_sheet = pd.read_excel(path_to_excel_file, sheet_name=sheet, usecols="B:G")
+    id_sheet = pd.read_excel(path_to_excel_file, sheet_name=sheet, usecols="B:G", engine="openpyxl")
     weight_dict = {}
     for dimension in list(id_sheet):
         weight_dict[dimension] = id_sheet[dimension][0]
@@ -31,8 +30,8 @@ def read_energy_system_types(path_to_excel_file = "excel_data/Diversity Index we
 
 def read_energy_systems(path_to_excel_file = "excel_data/Diversity Index weighted.xlsx",sheet_name = "Anlagen"):
     path_to_excel_file = path_to_excel_file
-    df = pd.read_excel(path_to_excel_file, sheet_name=sheet_name)
-    df = df.set_index(["Index","Brennstoff"], drop = False)
+    df = pd.read_excel(path_to_excel_file, sheet_name=sheet_name, engine="openpyxl")
+    df = df.set_index(["Index", "Brennstoff"], drop = False)
     return df
 
 
@@ -41,33 +40,38 @@ class EnergySystem:
     """
 
 
-    def __init__(self, system_index, fuel_type, path_to_excel_file = "excel_data/Diversity Index weighted.xlsx",sheet_name = "Anlagen"):
-        self.df_attr = read_energy_system_types(path_to_excel_file = path_to_excel_file,sheet_name = "Anlagentypen")
-        self.df_syst = read_energy_systems(path_to_excel_file = path_to_excel_file,sheet_name = sheet_name)
+    def __init__(self, system_index, fuel_type, excel_file = "Diversity Index weighted.xlsx",
+                 sheet_name = "Anlagen", csv_file="Anlagentypen.CSV"):
+        self.df_attr = pd.read_csv(csv_file, delimiter=";", encoding="latin", index_col="Name", skiprows=[1])
+        self.df_syst = read_energy_systems(path_to_excel_file=excel_file, sheet_name=sheet_name)
 
         self.system_index = system_index #number of the energy system
         self.fuel_type = fuel_type #type of fuel, string value
 
-        self.system_type = self.df_syst.loc[(self.system_index,self.fuel_type)]["Anlagentyp"] #type of system
+        self.system_type = self.df_syst.loc[(self.system_index, self.fuel_type)]["Anlagentyp"] #type of system
         self.type_and_fuel = self.system_type+"_"+self.fuel_type #type and fuel connected with an "_" form the index for the stirling index calculations
         self.attributes = self.df_attr.loc[self.type_and_fuel] #a pd.Series of attribute names and their (string) values
-        self.inout = self.df_syst.loc[(self.system_index,self.fuel_type)]["p_in_fuel":"e_inst_out_H2"]  #a pd.Series of energy flows and their (numeric) values
+        self.inout = self.df_syst.loc[(self.system_index,self.fuel_type)]["p_fuel":"p_el"]  #a pd.Series of energy flows and their (numeric) values
 
 
 # the following two functions serve as translation from the excel sheet to a dataframe that the calculating functions can work with.
 
 
-def summon_systems(path_to_excel_file = "excel_data/Diversity Index weighted.xlsx",sheet_name = "Anlagen"):
+def summon_systems(path_to_excel_file = "excel_data/Diversity Index weighted.xlsx",
+                   sheet_name = "Anlagen",
+                   csv_file = "Anlagentypen.CSV"):
     #getting the data
-    df = pd.read_excel(path_to_excel_file, sheet_name)
+    df = pd.read_excel(path_to_excel_file, sheet_name=sheet_name, engine="openpyxl")
     l_o_s = []
     for i in range(len(df)):
         info = df.iloc[i]
         new_system = EnergySystem(system_index = info["Index"],
-                                      fuel_type = info["Brennstoff"],
-                                  path_to_excel_file = path_to_excel_file,
-                                  sheet_name = sheet_name
+                                    fuel_type = info["Brennstoff"],
+                                  excel_file = path_to_excel_file,
+                                  sheet_name = sheet_name,
+                                  csv_file = csv_file
                                   )
+
         l_o_s.append(new_system)
     return l_o_s
 
@@ -120,7 +124,7 @@ def shannon_index(list_of_systems, energy_provision):
     new_df = unpacking_systems(list_of_systems,  inout = True)
 
     df_pivot = pd.pivot_table(
-        new_df, index=['type_and_fuel'],
+        new_df, index='type_and_fuel',
         values=[energy_provision],
         aggfunc={energy_provision: np.sum})
     total_energy = np.sum(df_pivot[energy_provision])
@@ -166,8 +170,7 @@ def calculate_disparity(a, b, weights):
 
 
 def stirling_index(list_of_systems, energy_provision, alpha=1, beta=1,
-                   filepath_for_dim_weights = "examples/excel_data/Diversity Index weighted.xlsx",
-                   dim_weight_sheet = "Dimensionen"):
+                   filepath_for_dim_weights = "examples/excel_data/Diversity Index weighted.xlsx"):
     """
 
     :param list_of_systems: a list of EnergySystem objects.
@@ -185,11 +188,13 @@ def stirling_index(list_of_systems, energy_provision, alpha=1, beta=1,
     :return: a numerical value for the stirling index.
     """
     #getting the weight of the dimensions as a list
-    dim_weight = read_dimensions_and_weights(filepath_for_dim_weights,dim_weight_sheet)[1]
-    dim_weight = list(dim_weight.values())
+    df = pd.read_csv(filepath_for_dim_weights, delimiter=";", encoding="latin", index_col="Name")
+    dim_weight = df.loc["Gewichtung"]
+    dim_weight = list(map(int, dim_weight.values))
+    dim_weight = np.array(dim_weight)
 
     #parsing the energy systems into a df, creating a list of names of attributes (dimensions)
-    df, attr_list = unpacking_systems(list_of_systems,attributes=True,inout=True,
+    df, attr_list = unpacking_systems(list_of_systems, attributes=True,inout=True,
                                       metadata_on_attributes=True)
     ###the dataframe now contains an "index" column that isn't needed, a type_and_fuel column acacting as an index,
     # attributes and many energy columns

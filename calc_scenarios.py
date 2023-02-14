@@ -2,6 +2,7 @@ from modules.inputs_and_param import simulation
 from modules.plotting_results import temperature_control
 from modules.resilience_index import calculate_resilience
 from modules.plotting_results import anlagen_table_convertor
+from modules.plotting_results import radar_chart
 import datetime
 import os
 
@@ -48,4 +49,6 @@ if __name__ == '__main__':
     calculate_resilience(make_boxplot=True, store_results=store_results)
 
     anlagen_table_convertor()
+
+    radar_chart(store_results=store_results)
 

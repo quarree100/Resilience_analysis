@@ -280,22 +280,24 @@ def plot(data_file="results_Scenario A_ErrorProfiles_input.csv", store_results=N
     plt.savefig(os.path.join(store_results, "plots", plot_name))
 
 
-def getting_data_radar_chart():
+def getting_data_radar_chart(excel_file_path="Diversity_info_scenarios.xlsx",
+                             csv_file_path="Anlagentypen.CSV"):
+
+    filepath_dim_weights = csv_file_path
+
+    xl = pd.read_excel(excel_file_path, sheet_name=None, engine="openpyxl")
+
     load = 290  # (aprox.) from excel file "Quarree100_load_15_Modelica"
 
     redundancy_list = []
     stirling_list = []
     shannon_list = []
 
-    for sheet in ["Anlagen_basic",
-                  "Anlagen_examples_for_p_inst",
-                  "Anlagen_more_indices",
-                  "Anlagen_more_indices_2"]:
-        l_o_s = res.summon_systems(path_to_excel_file="examples/excel_data/res_tools_example_data.xlsx",
-                                   sheet_name=sheet)
-        redundancy_list.append(res.redundancy(load, l_o_s, "p_inst_out_th"))
-        shannon_list.append(res.shannon_index(l_o_s, "p_inst_out_th"))
-        stirling_list.append(res.stirling_index(l_o_s, "p_inst_out_th"))
+    for sheet in xl.keys():
+        l_o_s = res.summon_systems(path_to_excel_file=excel_file_path, sheet_name=sheet, csv_file=csv_file_path)
+        redundancy_list.append(res.redundancy(load, l_o_s, "p_th"))
+        shannon_list.append(res.shannon_index(l_o_s, "p_th"))
+        stirling_list.append(res.stirling_index(l_o_s, "p_th", filepath_for_dim_weights=filepath_dim_weights))
 
     redundancy = np.array(redundancy_list)
     shannon = np.array(shannon_list)
@@ -324,20 +326,26 @@ def getting_data_radar_chart():
 
     return shannon_transformed, stirling_transformed, redundancy_transformed
 
-def radar_chart(scenarios = ["Scenario A", "Scenario B", "Scenario C", "Scenario D"]):
+def radar_chart(store_results, excel_file="Diversity_info_scenarios.xlsx", csv_file="Anlagentypen.CSV"):
+
+    path = os.path.join("input", "common", "dimension_scenarios")
+    excel_file_path = os.path.join(path, excel_file)
+    xl = pd.read_excel(excel_file_path, sheet_name=None, engine="openpyxl")
+    scenarios = xl.keys()
+    csv_file_path = os.path.join(path, csv_file)
 
     categories = ["Shannon Index", "Stirling Index", "Redundancy"]
 
-    shannon, stirling, redundancy = getting_data_radar_chart()
+    shannon, stirling, redundancy = getting_data_radar_chart(excel_file_path, csv_file_path)
 
     fig = go.Figure()
 
-    for ii in range(len(scenarios)):
+    for count, scenario in enumerate(scenarios):
         fig.add_trace(go.Scatterpolar(
-            r=[shannon[ii], stirling[ii], redundancy[ii]],
+            r=[shannon[count], stirling[count], redundancy[count]],
             theta=categories,
             fill='toself',
-            name=scenarios[ii]
+            name=scenario
         ))
 
     fig.update_layout(
@@ -350,8 +358,8 @@ def radar_chart(scenarios = ["Scenario A", "Scenario B", "Scenario C", "Scenario
     )
 
     #fig.show()
-
-    fig.write_image("radar_chart_exp.png")  # specifically kaleido v0.1.0.post1 was required for this line
+    plot_path = os.path.join(store_results, "plots", "radar_chart_exp.png")
+    fig.write_image(plot_path)  # specifically kaleido v0.1.0.post1 was required for this line
 
 def anlagen_table_convertor(scenarios=["A", "B", "C"], anlagentypen=["air_heat_pump", "air_heat_pump", "electrolyzer",
         "BHKW (CHP)", "boiler"], brennstoff=["9: Netzstrom", "9: Netzstrom", "9: Netzstrom", "1: Gas", "1: Gas"],
@@ -360,8 +368,8 @@ def anlagen_table_convertor(scenarios=["A", "B", "C"], anlagentypen=["air_heat_p
     """ Takes the parameter values file for each scenario and generates a table with the Anlagentypen and their
     info."""
 
-    #path = os.path.join("input", "common", "dimension_scenarios")
-    path = "C:\\Users\\Uni_Laptop_Cris\\Documents\\GitHub\\Resilience_analysis\\input\\common\\dimension_scenarios"
+    path = os.path.join("input", "common", "dimension_scenarios")
+
     table_info = {
         "Index": index,
         "Anlagentyp": anlagentypen,
@@ -409,7 +417,3 @@ def anlagen_table_convertor(scenarios=["A", "B", "C"], anlagentypen=["air_heat_p
         #table.to_csv(f"anlagen_infos_scenario_{scenario}.csv")
         table.to_excel(writer, f'Scenario {scenario}', index=True)
         writer.save()
-
-if __name__ == '__main__':
-
-    anlagen_table_convertor()
