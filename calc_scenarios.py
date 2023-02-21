@@ -8,8 +8,8 @@ import os
 
 scenarios = [
     "Scenario A",
-    # "Scenario B",
-    # "Scenario C",
+    "Scenario B",
+    "Scenario C",
 ]
 
 error_files = [
