@@ -15,7 +15,7 @@ filenames = ["results/data/results_Scenario A_ErrorProfiles_input.csv",
 
 Tband = 5  # this is +/- 5 as a tolerance band
 dTnorm = 5  # [C] # same as the Tband?
-dtnorm = 3600  # [s]
+dtNORM = 3600  # [s]
 
 
 def maximum_deviation(df):
@@ -25,16 +25,20 @@ def maximum_deviation(df):
     return MD
 
 
-def recovery_time(df, dtnorm=dtnorm):
-    tout = df.loc[df["dx"] != 0].index[0]
-    tin = df.loc[df["dx"] != 0].index[-1]
+def recovery_time(df, dtnorm=dtNORM):
+    if df.loc[df["dx"] != 0].empty:
+        tout = 0
+        tin = df["dx"].index[-1]
+    else:
+        tout = df.loc[df["dx"] != 0].index[0]
+        tin = df.loc[df["dx"] != 0].index[-1]
 
     RT = (tin - tout) / dtnorm
 
     return RT
 
 
-def performance_loss(df, dtnorm=dtnorm):
+def performance_loss(df, dtnorm=dtNORM):
     area = df['dx'].sum()
     area_norm = dTnorm * dtnorm
 
@@ -92,12 +96,17 @@ def calculate_resilience(make_boxplot=True, scenarios=["A", "B", "C"], errors=["
         t_dis_start = df["dx"].ne(0).idxmax()  # first non-zero element´s time index
         dtnorm = t_dis_end - t_dis_start
 
+        # If no point is found outside the T band, then the normalization time interval takes the default value
+        # of an hour, 3600
+        if dtnorm == 0:
+            dtnorm = dtNORM
+
         MD = maximum_deviation(df)
         RT = recovery_time(df, dtnorm=dtnorm)
         PL = performance_loss(df, dtnorm=dtnorm)
         RI = resilience_index(MD, RT, PL)
 
-        resilience_info.update(({file: [MD, RT, PL, RI]}))
+        resilience_info.update(({file.strip(".CSV").replace("_", " "): [MD, RT, PL, RI]}))
 
     index = ["MD", "RT", "PL", "RI"]
     resilience = pd.DataFrame(resilience_info, index=index)

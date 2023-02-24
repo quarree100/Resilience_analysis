@@ -8,8 +8,8 @@ import os
 
 scenarios = [
     "Scenario A",
-    # "Scenario B",
-    # "Scenario C",
+    "Scenario B",
+    "Scenario C",
 ]
 
 error_files = [
@@ -31,6 +31,8 @@ if __name__ == '__main__':
     ex_time = execution_time.strftime("%m%d%Y_%H_%M_%S")
     store_results = os.path.join("results", ex_time)
     os.mkdir(store_results)
+    os.mkdir(os.path.join(store_results, "data"))
+    os.mkdir(os.path.join(store_results, "plots"))
 
     simulation(
         dimension_filename="Parameter_Values.csv",

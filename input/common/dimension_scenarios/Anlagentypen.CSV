@@ -1,5 +1,5 @@
 Name;Ressourcenbasis;Abh‰ngigkeit;Brennstoff;Technologieklasse;Technologieart;Aufstellungsort
-Gewichtung;0;0;0;0;0;1
+Gewichtung;1;1;1;1;1;0
 air_heat_pump_9: Netzstrom;3: Gemischt;1: Netz-/Leitungsgebunden;9: Netzstrom;3: W‰rmepumpe;8: Auﬂenluft-W‰rmepumpe;3: Quartiersbezogene Versorgung
 air_heat_pump_10: PV-Strom;2: Regenerativ;2: Netz-/Leitungsunabh‰ngig;10: PV-Strom;3: W‰rmepumpe;8: Auﬂenluft-W‰rmepumpe;3: Quartiersbezogene Versorgung
 electrolyzer_9: Netzstrom;3: Gemischt;1: Netz-/Leitungsgebunden;9: Netzstrom;8: Elektrolyseur;17: Elektrolyseur;3: Quartiersbezogene Versorgung
