@@ -47,10 +47,12 @@ if __name__ == '__main__':
 
     print("Simulation done.")
 
-    temperature_control(store_results=store_results)
+    # Data treatment
     calculate_resilience(make_boxplot=True, store_results=store_results)
 
     anlagen_table_convertor()
 
+    # Plots
+    temperature_control(store_results=store_results)
     radar_chart(store_results=store_results)
 
