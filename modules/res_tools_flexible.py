@@ -3,6 +3,8 @@
 import pandas as pd
 import numpy as np
 import itertools
+import os
+from modules.plotting_results import radar_chart
 
 
 # The first functions are specific to the folder structure in the project.
@@ -263,5 +265,164 @@ def redundancy(load, list_of_systems, value_column, alpha=0.1, beta=0.5):
     res = gini**beta*excess_energy**alpha
     return res
 
+def anlagen_table_convertor(store_results, scenarios=["A", "B", "C"],
+                            anlagentypen=["air_heat_pump", "air_heat_pump", "electrolyzer", "BHKW (CHP)", "boiler"],
+                            brennstoff=["9: Netzstrom", "9: Netzstrom", "9: Netzstrom", "1: Gas", "1: Gas"],
+                            ETA_ELECTROLYSER=0.75, ETA_BOILER=0.9, index=["0", "1", "2", "3", "4"],
+                            p_th_heat_pumps=500,
+                            parameter_file="Parameter_Values.csv"):
+    """ Takes the parameter values file for each scenario and generates a table with the Anlagentypen and their
+    info, saving it as an excel file.
+
+    Arguments:
+        store_results: string. Path where the resulting table should be saved.
+        scenarios: list of strings. Names of the scenarios considered in the input paremeter file. Default:
+        ["A", "B", "C"].
+        anlagentypen: list of strings. Names of the Anlagentypen considered in the input paremeter file. Default:
+        ["air_heat_pump", "air_heat_pump", "electrolyzer", "BHKW (CHP)", "boiler"].
+        brennstoff: list of strings. Names of the fuel types considered in the input paremeter file. Default:
+        ["9: Netzstrom", "9: Netzstrom", "9: Netzstrom", "1: Gas", "1: Gas"].
+        ETA_ELECTROLYSER: float. Efficiency of the electrolyser. Default: 0.75.
+        ETA_BOILER: float. Efficiency of the boiler. Default: 0.9.
+        index: list of strings. Indices of the Anlagen considered in the input parameter file. Default:
+        ["0", "1", "2", "3", "4"].
+        p_th_heat_pumps: integer. Thermal power of the heat pumps. Default: 500.
+        parameter_file: string. Name of the input parameter file. Default: "Parameter_Values.csv".
+
+    """
+
+    # reading input file
+    path = os.path.join("input", "common", "dimension_scenarios")
+    df = pd.read_csv(os.path.join(path, parameter_file), delimiter=";")
+
+    # creating the table to fill up with the input information
+    table_info = {
+        "Index": index,
+        "Anlagentyp": anlagentypen,
+        "Brennstoff": brennstoff,
+        "p_fuel": np.zeros(len(index)),
+        "p_th": np.zeros(len(index)),
+        "p_el": np.zeros(len(index))}
+
+    table = pd.DataFrame(table_info)
+
+    # the output excel file is created
+    writer = pd.ExcelWriter(os.path.join(store_results, "data", 'Diversity_info_scenarios.xlsx'))
+
+    # for each scenario, all the missing power values are filled out according to the input parameters
+    # and saved in a separate sheet in the excel file
+    for scenario in scenarios:
+        # electric power of chp
+        chp_cap_el = float(df[f"Scenario {scenario}"].loc[df["Parameter"] == "capP_el_chp"])
+        table.loc[table["Anlagentyp"] == "BHKW (CHP)", ["p_el"]] = chp_cap_el
+
+        # fuel required and thermic power of chp
+        chp_eta_el = float(df[f"Scenario {scenario}"].loc[df["Parameter"] == "eta_el_chp"])
+        chp_eta_th = float(df[f"Scenario {scenario}"].loc[df["Parameter"] == "eta_th_chp"])
+        p_fuel = chp_cap_el / chp_eta_el
+        table.loc[table["Anlagentyp"] == "BHKW (CHP)", ["p_fuel"]] = - p_fuel
+        table.loc[table["Anlagentyp"] == "BHKW (CHP)", ["p_th"]] = p_fuel * chp_eta_th
+
+        # electric power of electrolyzer
+        electrolyser_cap_el = float(df[f"Scenario {scenario}"].loc[df["Parameter"] == "capP_el_electrolyser"])
+        electrolyser_gas = electrolyser_cap_el * ETA_ELECTROLYSER
+        table.loc[table["Anlagentyp"] == "electrolyzer", ["p_el"]] = - electrolyser_cap_el
+        table.loc[table["Anlagentyp"] == "electrolyzer", ["p_th"]] = electrolyser_cap_el - electrolyser_gas
+        table.loc[table["Anlagentyp"] == "electrolyzer", ["p_fuel"]] = electrolyser_gas
+
+        # thermic power of boiler
+        boiler_cap_th = float(df[f"Scenario {scenario}"].loc[df["Parameter"] == "capQ_th_boiler"])
+        table.loc[table["Anlagentyp"] == "boiler", ["p_th"]] = boiler_cap_th
+        table.loc[table["Anlagentyp"] == "boiler", ["p_fuel"]] = - boiler_cap_th / ETA_BOILER
+
+        # heat pumps
+        table.loc[table["Anlagentyp"] == "air_heat_pump", ["p_th"]] = p_th_heat_pumps
+        hp1_eta = float(df[f"Scenario {scenario}"].loc[df["Parameter"] == "ScaleFactor_HP1"])
+        hp2_eta = float(df[f"Scenario {scenario}"].loc[df["Parameter"] == "ScaleFactor_HP2"])
+        table.loc[table["Anlagentyp"] == "air_heat_pump", ["p_el"]] = [p_th_heat_pumps * hp1_eta,
+                                                                       p_th_heat_pumps * hp2_eta]
+        # the info of each scenario is saved in a separate sheet
+        table.to_excel(writer, f'Scenario {scenario}', index=True)
+        writer.save()
 
 
+def resilience_attributes_calculation(store_results, excel_file="Diversity_info_scenarios.xlsx",
+                                      csv_file="Anlagentypen.CSV", show_plot=True):
+    """
+    Calculates the Shannon index, the Stirling index and the redundancy of the system from the diversity information
+    and the Anlagentypen table. If show_plot=True, it also creates a radar chart with the results for each scenario
+    considered.
+
+    Arguments:
+        store_results: string. Path where the output will be saved.
+        excel_file: string. Name of the excel file with the diversity information of the system. Default:
+        "Diversity_info_scenarios.xlsx".
+        csv_file: string. Name of the csv file with the Anlagentypen table. Default: "Anlagentypen.csv".
+        show_plot: boolean. Whether the plot should be made or saved.
+
+    Returns:
+        (if show_plot=False) attributes: list of np.arrays where these arrays correspond to the shannon and stirling
+        indices and redundancy values for each scenarios.
+    """
+
+    # path of the input files are created and excel file is read
+    path = os.path.join("input", "common", "dimension_scenarios")
+    excel_file_path = os.path.join(store_results, "data", excel_file)
+    xl = pd.read_excel(excel_file_path, sheet_name=None, engine="openpyxl")
+    csv_file_path = os.path.join(path, csv_file)
+
+    load = 290  # (aprox.) from excel file "Quarree100_load_15_Modelica"
+
+    # empty lists for each index to be filled up with the corresponding values for each scenario
+    redundancy_list = []
+    stirling_list = []
+    shannon_list = []
+
+    # for each sheet in the excel file, corresponding to each scenario, the index values are obtained
+    for sheet in xl.keys():
+        l_o_s = summon_systems(path_to_excel_file=excel_file_path, sheet_name=sheet, csv_file=csv_file_path)
+        redundancy_list.append(redundancy(load, l_o_s, "p_th"))
+        shannon_list.append(shannon_index(l_o_s, "p_th"))
+        stirling_list.append(stirling_index(l_o_s, "p_th", filepath_for_dim_weights=csv_file_path))
+
+    # the lists are made into arrays for convenience
+    redundancy_index = np.array(redundancy_list)
+    shannon = np.array(shannon_list)
+    stirling = np.array(stirling_list)
+
+    #list with the results
+    attributes = [shannon, stirling, redundancy_index]
+
+    # Transformation of the variables to make the shapes in the plot more visible and different from each other
+    # redundancy_transformed = np.zeros(4)
+    # max_val = redundancy.max() + redundancy.mean()/5
+    # min_val = redundancy.min() - redundancy.mean()/5
+    # val_range = max_val - min_val
+    # for count, element in enumerate(redundancy):
+    #    redundancy_transformed[count] = (element - min_val) * 100 / val_range
+
+    # stirling_transformed = np.zeros(4)
+    # max_val = stirling.max() + stirling.mean()/5
+    # min_val = stirling.min() - stirling.mean()/5
+    # val_range = max_val - min_val
+    # for count, element in enumerate(stirling):
+    #    stirling_transformed[count] = (element - min_val) * 100 / val_range
+
+    # shannon_transformed = np.zeros(4)
+    # max_val = shannon.max() + shannon.mean()/5
+    # min_val = shannon.min() - shannon.mean()/5
+    # val_range = max_val - min_val
+    # for count, element in enumerate(shannon):
+    #    shannon_transformed[count] = (element - min_val) * 100 / val_range
+
+    # The radar chart is done and saved in the "store_results" path
+    if show_plot:
+        scenarios = xl.keys()
+        categories = ["Shannon Index", "Stirling Index", "Redundancy"]
+
+        radar_chart(store_results=store_results, attributes=attributes,
+                    scenarios=scenarios, categories=categories)
+
+    # in the case that no plot was saved, the results are returned as a list of arrays
+    else:
+        return attributes

@@ -2,19 +2,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import parse
 import plotly.graph_objects as go
-import modules.res_tools_flexible as res
-import numpy as np
 import os
-
-filenames = ["results/data/results_Scenario A_ErrorProfiles_input.csv",
-             "results/data/results_Scenario A_ErrorProfiles_input_Boiler_14_10_18.csv",
-             "results/data/results_Scenario A_ErrorProfiles_input_CHP_13_1_18.csv",
-             "results/data/results_Scenario B_ErrorProfiles_input.csv",
-             "results/data/results_Scenario B_ErrorProfiles_input_Boiler_14_10_18.csv",
-             "results/data/results_Scenario B_ErrorProfiles_input_CHP_13_1_18.csv",
-             "results/data/results_Scenario C_ErrorProfiles_input.csv",
-             "results/data/results_Scenario C_ErrorProfiles_input_Boiler_14_10_18.csv",
-             "results/data/results_Scenario C_ErrorProfiles_input_CHP_13_1_18.csv"]
 
 vars = ['controller.calc_Qdot_production.u_Qdot_Boiler',
         'controller.calc_Qdot_production.u_Qdot_CHP',
@@ -242,15 +230,16 @@ def plot(data_file="results_Scenario A_ErrorProfiles_input.csv", store_results=N
     fig, axs = plt.subplots(3, figsize=(12, 8))
 
     # filtering the scenario the data belongs to and setting it as pic title
-    title = data_file.strip("results")
-    # for s in dimension_scenarios:
-    #     if s in data_file:
-    #         title = "Scenario " + s
+    title = ""
+    for s in scenarios:
+        if s in data_file:
+            title = "Scenario " + s
+            break
 
     # looking for the corresponding error file used and adding it to the pic title
     error = parse.search('ErrorProfiles_input{}.csv', data_file)
-    if error:
-        title = title.strip(".csv") + " with error" + error.fixed[0].replace("_", " ", 2).replace("_", "-")
+    if "no" not in error:
+        title = title + " with error" + error.fixed[0].replace("_", " ", 2).replace("_", "-")
 
     fig.suptitle(title, fontsize=18)
 
@@ -279,64 +268,23 @@ def plot(data_file="results_Scenario A_ErrorProfiles_input.csv", store_results=N
     plot_name = title.replace(" ", "_") + ".png"
     plt.savefig(os.path.join(store_results, "plots", plot_name))
 
+def radar_chart(store_results, attributes, scenarios, categories):
+    """
+    Makes the radar chart plot of the resilience attributes: Shannon index, Stirling index and redundancy, for each
+    scenario and saves it in the "store_results" path.
 
-def getting_data_radar_chart(excel_file_path="Diversity_info_scenarios.xlsx",
-                             csv_file_path="Anlagentypen.CSV"):
+    Args:
+        store_results: string. Path where the output will be saved.
+        attributes: list of arrays where each array is one of the attributes and each element corresponds to a
+        scenario.
+        scenarios: list of strings. Names of the scenarios considered.
+        categories: list of strings. Names of the attributes.
 
-    filepath_dim_weights = csv_file_path
-
-    xl = pd.read_excel(excel_file_path, sheet_name=None, engine="openpyxl")
-
-    load = 290  # (aprox.) from excel file "Quarree100_load_15_Modelica"
-
-    redundancy_list = []
-    stirling_list = []
-    shannon_list = []
-
-    for sheet in xl.keys():
-        l_o_s = res.summon_systems(path_to_excel_file=excel_file_path, sheet_name=sheet, csv_file=csv_file_path)
-        redundancy_list.append(res.redundancy(load, l_o_s, "p_th"))
-        shannon_list.append(res.shannon_index(l_o_s, "p_th"))
-        stirling_list.append(res.stirling_index(l_o_s, "p_th", filepath_for_dim_weights=filepath_dim_weights))
-
-    redundancy = np.array(redundancy_list)
-    shannon = np.array(shannon_list)
-    stirling = np.array(stirling_list)
-
-    redundancy_transformed = np.zeros(4)
-    max_val = redundancy.max() + redundancy.mean()/5
-    min_val = redundancy.min() - redundancy.mean()/5
-    val_range = max_val - min_val
-    for count, element in enumerate(redundancy):
-        redundancy_transformed[count] = (element - min_val) * 100 / val_range
-
-    stirling_transformed = np.zeros(4)
-    max_val = stirling.max() + stirling.mean()/5
-    min_val = stirling.min() - stirling.mean()/5
-    val_range = max_val - min_val
-    for count, element in enumerate(stirling):
-        stirling_transformed[count] = (element - min_val) * 100 / val_range
-
-    shannon_transformed = np.zeros(4)
-    max_val = shannon.max() + shannon.mean()/5
-    min_val = shannon.min() - shannon.mean()/5
-    val_range = max_val - min_val
-    for count, element in enumerate(shannon):
-        shannon_transformed[count] = (element - min_val) * 100 / val_range
-
-    return shannon_transformed, stirling_transformed, redundancy_transformed
-
-def radar_chart(store_results, excel_file="Diversity_info_scenarios.xlsx", csv_file="Anlagentypen.CSV"):
-
-    path = os.path.join("input", "common", "dimension_scenarios")
-    excel_file_path = os.path.join(path, excel_file)
-    xl = pd.read_excel(excel_file_path, sheet_name=None, engine="openpyxl")
-    scenarios = xl.keys()
-    csv_file_path = os.path.join(path, csv_file)
-
-    categories = ["Shannon Index", "Stirling Index", "Redundancy"]
-
-    shannon, stirling, redundancy = getting_data_radar_chart(excel_file_path, csv_file_path)
+    """
+    # separation of the attributes for convenience
+    shannon = attributes[0]
+    stirling = attributes[1]
+    redundancy = attributes[2]
 
     fig = go.Figure()
 
@@ -352,68 +300,11 @@ def radar_chart(store_results, excel_file="Diversity_info_scenarios.xlsx", csv_f
         polar=dict(
             radialaxis=dict(
                 visible=True,
-                range=[0, 100]
+                range=[0, 1]
             )),
         showlegend=True
     )
 
     #fig.show()
-    plot_path = os.path.join(store_results, "plots", "radar_chart_exp.png")
+    plot_path = os.path.join(store_results, "plots", "radar_chart.png")
     fig.write_image(plot_path)  # specifically kaleido v0.1.0.post1 was required for this line
-
-def anlagen_table_convertor(scenarios=["A", "B", "C"], anlagentypen=["air_heat_pump", "air_heat_pump", "electrolyzer",
-        "BHKW (CHP)", "boiler"], brennstoff=["9: Netzstrom", "9: Netzstrom", "9: Netzstrom", "1: Gas", "1: Gas"],
-        ETA_ELECTROLYSER=0.75, ETA_BOILER=0.9, index=["0", "1", "2", "3", "4"], p_th_heat_pumps=500,
-                            parameter_file="Parameter_Values.csv"):
-    """ Takes the parameter values file for each scenario and generates a table with the Anlagentypen and their
-    info."""
-
-    path = os.path.join("input", "common", "dimension_scenarios")
-
-    table_info = {
-        "Index": index,
-        "Anlagentyp": anlagentypen,
-        "Brennstoff": brennstoff,
-        "p_fuel": np.zeros(len(index)),
-        "p_th": np.zeros(len(index)),
-        "p_el": np.zeros(len(index))}
-
-
-    df = pd.read_csv(os.path.join(path, parameter_file), delimiter=";")
-    table = pd.DataFrame(table_info)
-
-    writer = pd.ExcelWriter(os.path.join(path, 'Diversity_info_scenarios.xlsx'))
-    for scenario in scenarios:
-        # electric power of chp
-        chp_cap_el = float(df[f"Scenario {scenario}"].loc[df["Parameter"] == "capP_el_chp"])
-        table.loc[table["Anlagentyp"] == "BHKW (CHP)", ["p_el"]] = chp_cap_el
-
-        # fuel required and thermic power of chp
-        chp_eta_el = float(df[f"Scenario {scenario}"].loc[df["Parameter"] == "eta_el_chp"])
-        chp_eta_th = float(df[f"Scenario {scenario}"].loc[df["Parameter"] == "eta_th_chp"])
-        p_fuel = chp_cap_el / chp_eta_el
-        table.loc[table["Anlagentyp"] == "BHKW (CHP)", ["p_fuel"]] = - p_fuel
-        table.loc[table["Anlagentyp"] == "BHKW (CHP)", ["p_th"]] = p_fuel * chp_eta_th
-
-        # electric power of electrolyzer
-        electrolyser_cap_el = float(df[f"Scenario {scenario}"].loc[df["Parameter"] == "capP_el_electrolyser"])
-        electrolyser_gas = electrolyser_cap_el * ETA_ELECTROLYSER
-        table.loc[table["Anlagentyp"] == "electrolyzer", ["p_el"]] = - electrolyser_cap_el
-        table.loc[table["Anlagentyp"] == "electrolyzer", ["p_th"]] = electrolyser_cap_el - electrolyser_gas
-        table.loc[table["Anlagentyp"] == "electrolyzer", ["p_fuel"]] = electrolyser_gas
-
-        # thermic power of boiler
-        boiler_cap_th = float(df[f"Scenario {scenario}"].loc[df["Parameter"] == "capQ_th_boiler"])
-        table.loc[table["Anlagentyp"] == "boiler", ["p_th"]] = boiler_cap_th
-        table.loc[table["Anlagentyp"] == "boiler", ["p_fuel"]] = - boiler_cap_th / ETA_BOILER
-
-        # heat pumps
-        table.loc[table["Anlagentyp"] == "air_heat_pump", ["p_th"]] = p_th_heat_pumps
-        hp1_eta = float(df[f"Scenario {scenario}"].loc[df["Parameter"] == "ScaleFactor_HP1"])
-        hp2_eta = float(df[f"Scenario {scenario}"].loc[df["Parameter"] == "ScaleFactor_HP2"])
-        table.loc[table["Anlagentyp"] == "air_heat_pump", ["p_el"]] = [p_th_heat_pumps * hp1_eta,
-                                                                       p_th_heat_pumps * hp2_eta]
-
-        #table.to_csv(f"anlagen_infos_scenario_{scenario}.csv")
-        table.to_excel(writer, f'Scenario {scenario}', index=True)
-        writer.save()
