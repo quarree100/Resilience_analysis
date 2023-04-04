@@ -2,14 +2,15 @@ from modules.inputs_and_param import simulation
 from modules.plotting_results import temperature_control
 from modules.resilience_index import calculate_resilience
 from modules.res_tools_flexible import anlagen_table_convertor, resilience_attributes_calculation
+from scenarios_and_errors import read_scenarios_names
 import datetime
 import os
 
-scenarios = [
-    "Scenario A",
-    "Scenario B",
-    "Scenario C",
-]
+#scenarios = [
+#    "Scenario A",
+#    "Scenario B",
+#    "Scenario C",
+#]
 
 error_files = [
     # "ErrorProfiles_input.CSV",
@@ -33,6 +34,8 @@ if __name__ == '__main__':
     os.mkdir(os.path.join(store_results, "data"))
     os.mkdir(os.path.join(store_results, "plots"))
 
+    scenarios = read_scenarios_names("Parameter_Values.csv")
+
     simulation(
         dimension_filename="Parameter_Values.csv",
         dimension_scenarios=scenarios,
@@ -47,9 +50,9 @@ if __name__ == '__main__':
     print("Simulation done.")
 
     # Data treatment
-    calculate_resilience(make_boxplot=True, store_results=store_results)
-    anlagen_table_convertor(store_results=store_results)
+    calculate_resilience(make_boxplot=True, store_results=store_results, scenarios=scenarios)
+    anlagen_table_convertor(store_results=store_results, scenarios=scenarios)
     resilience_attributes_calculation(store_results=store_results)
 
     # Plots
-    temperature_control(store_results=store_results)
+    temperature_control(store_results=store_results, scenarios=scenarios)
