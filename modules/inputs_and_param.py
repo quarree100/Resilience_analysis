@@ -226,7 +226,7 @@ def simulation(
             df_res.to_csv(os.path.join(store_results, "data", csv_filename))
 
             if make_plot:
-                plot(data_file=csv_filename, store_results=store_results)
+                plot(data_file=csv_filename, store_results=store_results, scenarios=dimension_scenarios)
 
     # free the FMU instance and unload the shared library
     fmu_instance.freeInstance()

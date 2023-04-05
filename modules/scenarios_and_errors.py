@@ -47,6 +47,8 @@ def generating_error_files(input_file="Error Scenarios.xlsx"):
         new_df = pd.DataFrame(data=1, index=new_file_index, columns=new_columns)
         new_df["date"] = pd.date_range("2018-01-01", periods=new_df.shape[0], freq="H").strftime("%d.%m.%Y %H:%M")
 
+        new_df.index.name = "sec"
+
         start_time = df.iloc[index].start
         end_time = df.iloc[index].end
 
@@ -60,4 +62,27 @@ def generating_error_files(input_file="Error Scenarios.xlsx"):
 
         new_df.to_csv(os.path.join(path, filename))
 
+def generating_error_files_list():
+    """
+    Generates a list of all error file names with and without ".csv"
 
+    Returns:
+        error_files_list: list of strings. List of the names of all error files.
+        error_names: list of strings. List of the names of the error files without the ".csv" termination.
+
+    """
+
+    files_list = os.listdir(path=os.path.join("input", "modelica", "error_scenarios"))
+
+    error_files_list = []
+    error_names = []
+
+    for file in files_list:
+        if ".csv" in file:
+            error_files_list.append(file)
+            error_names.append(file.strip(".csv"))
+        if ".CSV" in file:
+            error_files_list.append(file)
+            error_names.append(file.strip(".CSV"))
+
+    return error_files_list, error_names
