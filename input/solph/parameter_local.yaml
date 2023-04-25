@@ -1,10 +1,4 @@
 ---
-gas_source:
-  variable_costs: 0.30  # €/kWh, synthetic renewable gas
-  emission_factor: 0  # kg/kWh
-hydrogen_sell:
-  variable_costs: -0.15  # €/kWh
-  emission_factor: 0  # kg/kWh
 gas_boiler:
   efficiency: 0.85  #
   minimum_load: 0.2  #
