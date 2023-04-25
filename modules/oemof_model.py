@@ -239,7 +239,7 @@ def create_solph_model(
     energysystem.add(grid_pump, thermal_storage)
 
     # plot_es_graph(energysystem, show=True)
-
+    #
     # gr = ESGraphRenderer(energy_system=energysystem, filepath="energy_system",
     #                      img_format="png")
     # gr.view()
@@ -334,7 +334,8 @@ def plot_results(esys):
 
 def calculate_oemof_model(
         dimension_scenario,
-        simulation_period=("01-01-2022", 365),
+        global_scenario,
+        simulation_period=("01-01-2018", 365),
         factor_emission_reduction=0.5,
         path_oemof=os.path.join("input", "solph"),
         path_common=os.path.join("input", "common"),
@@ -352,6 +353,9 @@ def calculate_oemof_model(
 
     Parameters
     ----------
+    dimension_scenario
+    global_scenario : str
+        Scenario name of gloabel scenario.
     simulation_period : tuple
         Start date and length of period in days
     factor_emission_reduction : scalar
@@ -367,6 +371,10 @@ def calculate_oemof_model(
 
     """
 
+    # get and prepare all dimensioning data ###################################
+
+    # TODO : I think you changed the format of the dimension scenarios,
+    #        so the following needs to be adapted:
     dim_sc = pd.read_csv(os.path.join(
         path_common, "dimension_scenarios", dimension_scenario + ".csv"),
         index_col=0,
@@ -394,19 +402,51 @@ def calculate_oemof_model(
         "eta_th_chp": dim_sc.loc["eta_th_chp", "Value"],
     }
 
-    tech_param = os.path.join(path_oemof, "parameter.yaml")
+    # load data of local scenarios ############################################
+
+    tech_param = os.path.join(path_oemof, "parameter_local.yaml")
 
     with open(tech_param) as file:
         tech_param = yaml.safe_load(file)
 
-    timeseries = pd.read_csv(os.path.join(path_oemof, "Timeseries_15min.csv"),
-                             sep=",", skiprows=[0])
+    # load the table with the commodity parameters costs and emissions
+    df_global_param = pd.read_csv(os.path.join(
+        path_oemof, "parameter_global.csv"
+    ), index_col=[0, 1])
+
+    # add the commodity data to the tech_param dict
+    tech_param.update(
+        df_global_param.loc[:, global_scenario].unstack().T.to_dict()
+    )
+
+    # load data of global scenarios ###########################################
+
+    # load the timeseries with the local parameter
+    timeseries = pd.read_csv(
+        os.path.join(path_oemof, "Timeseries_15min_local.csv"),
+        sep=",", skiprows=[0],
+    )
 
     timeseries.index = pd.DatetimeIndex(
         pd.date_range(start=simulation_period[0], freq="15min", periods=8760 * 4)
     )
 
-    # Create and solve oemof-solph model
+    # load global timeseries table
+    timeseries_global = pd.read_csv(os.path.join(
+        path_oemof, "Timeseries_1h_global.csv"
+    ), header=[0, 1], index_col=0)
+
+    timeseries_global = timeseries_global.loc[:, (["2020"], slice(None))]
+    timeseries_global.columns = timeseries_global.columns.droplevel(0)
+    timeseries_global.index = pd.DatetimeIndex(
+        pd.date_range(start='01-01-2018', freq="1H", periods=8760)
+    )
+    timeseries_global = timeseries_global.resample('15min').interpolate()
+
+    # merge the global timeseries to local timeseries dataframe
+    timeseries = pd.concat([timeseries, timeseries_global], axis=1)
+
+    # Create and solve oemof-solph model ######################################
 
     start = pd.to_datetime(simulation_period[0], yearfirst=False)
     end = start + pd.Timedelta(simulation_period[1], unit="D")
@@ -429,7 +469,7 @@ def calculate_oemof_model(
 
     # what is the emission value in the cost optimal case?
 
-    logging.info("Calculate maximum emission limit")
+    logging.info("Calculate emission value in the cost-optimal case")
 
     esys_cost = create_solph_model(
         techparam=tech_param,
@@ -473,25 +513,38 @@ def calculate_oemof_model(
         plt.show()
 
     # get results
-    results = esys_mid.results["main"]
+    d_results = {
+        "cost_optimal": esys_cost.results["main"],
+        "emission_optimal": esys_emission.results["main"],
+        "mid_case": esys_mid.results["main"],
+    }
 
-    th_storage = solph.views.node(results, "thermal_storage")["sequences"]
-    boiler = solph.views.node(results, "gas_boiler")["sequences"]
-    ely = solph.views.node(results, "electrolysis")["sequences"]
-    chp = solph.views.node(results, "chp")["sequences"]
-    hp_air = solph.views.node(results, "heatpump_air")["sequences"]
-    hp_ground = solph.views.node(results, "heatpump_ground")["sequences"]
+    d_results_heat_generation = {}
 
-    list_comps = [boiler, chp, hp_air, hp_ground, ely, th_storage]
+    for k, v in d_results.items():
 
-    df_restuls = pd.concat(list_comps, axis=1)
+        results = esys_mid.results["main"]
 
-    if show_plots:
-        for comp in list_comps:
-            comp.plot()
-            plt.show()
+        th_storage = solph.views.node(results, "thermal_storage")["sequences"]
+        boiler = solph.views.node(results, "gas_boiler")["sequences"]
+        ely = solph.views.node(results, "electrolysis")["sequences"]
+        chp = solph.views.node(results, "chp")["sequences"]
+        hp_air = solph.views.node(results, "heatpump_air")["sequences"]
+        hp_ground = solph.views.node(results, "heatpump_ground")["sequences"]
 
-    return df_restuls
+        list_comps = [boiler, chp, hp_air, hp_ground, ely, th_storage]
+
+        df_restuls = pd.concat(list_comps, axis=1)
+
+        d_results_heat_generation.update({k: df_restuls})
+
+        if show_plots:
+            for comp in list_comps:
+                comp.plot()
+                plt.title(k)
+                plt.show()
+
+    return d_results_heat_generation["mid_case"]
 
 
 def prepare_schedules(df):
@@ -517,7 +570,7 @@ if __name__ == '__main__':
 
     # perspective function arguments
 
-    simulation_period = ("15-02-2022", 14)  # start date, length of period in days
+    simulation_period = ("15-02-2018", 14)  # start date, length of period in days
 
     # more or less fixed input paths (no function attributes)
 
@@ -530,7 +583,7 @@ if __name__ == '__main__':
                              sep=",")
 
     timeseries.index = pd.DatetimeIndex(
-        pd.date_range(start="01-01-2022", freq="15min", periods=8760*4)
+        pd.date_range(start="01-01-2018", freq="15min", periods=8760*4)
     )
 
     with open(tech_param) as file:
