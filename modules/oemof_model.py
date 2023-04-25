@@ -5,7 +5,7 @@ import math
 import pandas as pd
 from oemof.tools import logger
 from oemof.network.graph import create_nx_graph
-from oemof_visio import ESGraphRenderer
+# from oemof_visio import ESGraphRenderer
 # from q100opt.plots import plot_es_graph
 from matplotlib import pyplot as plt
 import datetime

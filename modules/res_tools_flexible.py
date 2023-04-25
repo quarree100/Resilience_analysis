@@ -3,15 +3,15 @@
 import pandas as pd
 import numpy as np
 import itertools
-
+import os
+from modules.plotting_results import radar_chart
 
 # The first functions are specific to the folder structure in the project.
 # They read the dimension, weights, types of energy systems and the list of
 # installed systems found in /excel_data/Diversity Index weighted.xlsx
 
 def read_dimensions_and_weights(path_to_excel_file, sheet):
-    path_to_excel_file = path_to_excel_file
-    id_sheet = pd.read_excel(path_to_excel_file, sheet_name=sheet, usecols="B:G")
+    id_sheet = pd.read_excel(path_to_excel_file, sheet_name=sheet, usecols="B:G", engine="openpyxl")   
     weight_dict = {}
     for dimension in list(id_sheet):
         weight_dict[dimension] = id_sheet[dimension][0]
@@ -31,8 +31,10 @@ def read_energy_system_types(path_to_excel_file = "excel_data/Diversity Index we
 
 def read_energy_systems(path_to_excel_file = "excel_data/Diversity Index weighted.xlsx",sheet_name = "Anlagen"):
     path_to_excel_file = path_to_excel_file
-    df = pd.read_excel(path_to_excel_file, sheet_name=sheet_name)
-    df = df.set_index(["Index","Brennstoff"], drop = False)
+    
+    df = pd.read_excel(path_to_excel_file, sheet_name=sheet_name, engine="openpyxl")
+    df = df.set_index(["Index", "Brennstoff"], drop = False)
+
     return df
 
 
@@ -41,33 +43,41 @@ class EnergySystem:
     """
 
 
-    def __init__(self, system_index, fuel_type, path_to_excel_file = "excel_data/Diversity Index weighted.xlsx",sheet_name = "Anlagen"):
-        self.df_attr = read_energy_system_types(path_to_excel_file = path_to_excel_file,sheet_name = "Anlagentypen")
-        self.df_syst = read_energy_systems(path_to_excel_file = path_to_excel_file,sheet_name = sheet_name)
+
+    def __init__(self, system_index, fuel_type, excel_file = "Diversity Index weighted.xlsx",
+                 sheet_name = "Anlagen", csv_file="Anlagentypen.CSV"):
+        self.df_attr = pd.read_csv(csv_file, delimiter=";", encoding="latin", index_col="Name", skiprows=[1])
+        self.df_syst = read_energy_systems(path_to_excel_file=excel_file, sheet_name=sheet_name)
 
         self.system_index = system_index #number of the energy system
         self.fuel_type = fuel_type #type of fuel, string value
 
-        self.system_type = self.df_syst.loc[(self.system_index,self.fuel_type)]["Anlagentyp"] #type of system
+        self.system_type = self.df_syst.loc[(self.system_index, self.fuel_type)]["Anlagentyp"] #type of system
         self.type_and_fuel = self.system_type+"_"+self.fuel_type #type and fuel connected with an "_" form the index for the stirling index calculations
         self.attributes = self.df_attr.loc[self.type_and_fuel] #a pd.Series of attribute names and their (string) values
-        self.inout = self.df_syst.loc[(self.system_index,self.fuel_type)]["p_in_fuel":"e_inst_out_H2"]  #a pd.Series of energy flows and their (numeric) values
+        self.inout = self.df_syst.loc[(self.system_index,self.fuel_type)]["p_fuel":"p_el"]  #a pd.Series of energy flows and their (numeric) values
 
 
 # the following two functions serve as translation from the excel sheet to a dataframe that the calculating functions can work with.
 
 
-def summon_systems(path_to_excel_file = "excel_data/Diversity Index weighted.xlsx",sheet_name = "Anlagen"):
+
+def summon_systems(path_to_excel_file = "excel_data/Diversity Index weighted.xlsx",
+                   sheet_name = "Anlagen",
+                   csv_file = "Anlagentypen.CSV"):
     #getting the data
-    df = pd.read_excel(path_to_excel_file, sheet_name)
+    df = pd.read_excel(path_to_excel_file, sheet_name=sheet_name, engine="openpyxl")
+
     l_o_s = []
     for i in range(len(df)):
         info = df.iloc[i]
         new_system = EnergySystem(system_index = info["Index"],
-                                      fuel_type = info["Brennstoff"],
-                                  path_to_excel_file = path_to_excel_file,
-                                  sheet_name = sheet_name
+                                    fuel_type = info["Brennstoff"],
+                                  excel_file = path_to_excel_file,
+                                  sheet_name = sheet_name,
+                                  csv_file = csv_file
                                   )
+
         l_o_s.append(new_system)
     return l_o_s
 
@@ -110,7 +120,6 @@ def unpacking_systems(list_of_systems, attributes = False, inout = False, metada
         return df
 
 
-
 def shannon_index(list_of_systems, energy_provision):
     """The shannon index is based on the number of different types of energy sources and their relative energy shares.
 
@@ -120,7 +129,7 @@ def shannon_index(list_of_systems, energy_provision):
     new_df = unpacking_systems(list_of_systems,  inout = True)
 
     df_pivot = pd.pivot_table(
-        new_df, index=['type_and_fuel'],
+        new_df, index='type_and_fuel',
         values=[energy_provision],
         aggfunc={energy_provision: np.sum})
     total_energy = np.sum(df_pivot[energy_provision])
@@ -166,8 +175,7 @@ def calculate_disparity(a, b, weights):
 
 
 def stirling_index(list_of_systems, energy_provision, alpha=1, beta=1,
-                   filepath_for_dim_weights = "examples/excel_data/Diversity Index weighted.xlsx",
-                   dim_weight_sheet = "Dimensionen"):
+                   filepath_for_dim_weights = "examples/excel_data/Diversity Index weighted.xlsx"):
     """
 
     :param list_of_systems: a list of EnergySystem objects.
@@ -185,11 +193,13 @@ def stirling_index(list_of_systems, energy_provision, alpha=1, beta=1,
     :return: a numerical value for the stirling index.
     """
     #getting the weight of the dimensions as a list
-    dim_weight = read_dimensions_and_weights(filepath_for_dim_weights,dim_weight_sheet)[1]
-    dim_weight = list(dim_weight.values())
+    df = pd.read_csv(filepath_for_dim_weights, delimiter=";", encoding="latin", index_col="Name")
+    dim_weight = df.loc["Gewichtung"]
+    dim_weight = list(map(int, dim_weight.values))
+    dim_weight = np.array(dim_weight)
 
     #parsing the energy systems into a df, creating a list of names of attributes (dimensions)
-    df, attr_list = unpacking_systems(list_of_systems,attributes=True,inout=True,
+    df, attr_list = unpacking_systems(list_of_systems, attributes=True,inout=True,
                                       metadata_on_attributes=True)
     ###the dataframe now contains an "index" column that isn't needed, a type_and_fuel column acacting as an index,
     # attributes and many energy columns
@@ -258,5 +268,169 @@ def redundancy(load, list_of_systems, value_column, alpha=0.1, beta=0.5):
     res = gini**beta*excess_energy**alpha
     return res
 
+def anlagen_table_convertor(store_results, scenarios=["A", "B", "C"],
+                            anlagentypen=["air_heat_pump", "air_heat_pump", "electrolyzer", "BHKW (CHP)", "boiler"],
+                            brennstoff=["9: Netzstrom", "9: Netzstrom", "9: Netzstrom", "1: Gas", "1: Gas"],
+                            ETA_ELECTROLYSER=0.75, ETA_BOILER=0.9, index=["0", "1", "2", "3", "4"],
+                            p_th_heat_pumps=500,
+                            parameter_file="Parameter_Values.csv"):
+    """ Takes the parameter values file for each scenario and generates a table with the Anlagentypen and their
+    info, saving it as an excel file.
 
+    Arguments:
+        store_results: string. Path where the resulting table should be saved.
+        scenarios: list of strings. Names of the scenarios considered in the input paremeter file. Default:
+        ["A", "B", "C"].
+        anlagentypen: list of strings. Names of the Anlagentypen considered in the input paremeter file. Default:
+        ["air_heat_pump", "air_heat_pump", "electrolyzer", "BHKW (CHP)", "boiler"].
+        brennstoff: list of strings. Names of the fuel types considered in the input paremeter file. Default:
+        ["9: Netzstrom", "9: Netzstrom", "9: Netzstrom", "1: Gas", "1: Gas"].
+        ETA_ELECTROLYSER: float. Efficiency of the electrolyser. Default: 0.75.
+        ETA_BOILER: float. Efficiency of the boiler. Default: 0.9.
+        index: list of strings. Indices of the Anlagen considered in the input parameter file. Default:
+        ["0", "1", "2", "3", "4"].
+        p_th_heat_pumps: integer. Thermal power of the heat pumps. Default: 500.
+        parameter_file: string. Name of the input parameter file. Default: "Parameter_Values.csv".
+
+    """
+
+    # reading input file
+    path = os.path.join("input", "common", "dimension_scenarios")
+    df = pd.read_csv(os.path.join(path, parameter_file), delimiter=";")
+
+    # creating the table to fill up with the input information
+    table_info = {
+        "Index": index,
+        "Anlagentyp": anlagentypen,
+        "Brennstoff": brennstoff,
+        "p_fuel": np.zeros(len(index)),
+        "p_th": np.zeros(len(index)),
+        "p_el": np.zeros(len(index))}
+
+    table = pd.DataFrame(table_info)
+
+    # the output excel file is created
+    writer = pd.ExcelWriter(os.path.join(store_results, "data", 'scenarios_system_dimensions.xlsx'))
+
+    # for each scenario, all the missing power values are filled out according to the input parameters
+    # and saved in a separate sheet in the excel file
+    for scenario in scenarios:
+        # electric power of chp
+        chp_cap_el = float(df[f"{scenario}"].loc[df["Parameter"] == "capP_el_chp"])
+        table.loc[table["Anlagentyp"] == "BHKW (CHP)", ["p_el"]] = chp_cap_el
+
+        # fuel required and thermic power of chp
+        chp_eta_el = float(df[f"{scenario}"].loc[df["Parameter"] == "eta_el_chp"])
+        chp_eta_th = float(df[f"{scenario}"].loc[df["Parameter"] == "eta_th_chp"])
+        p_fuel = chp_cap_el / chp_eta_el
+        table.loc[table["Anlagentyp"] == "BHKW (CHP)", ["p_fuel"]] = - p_fuel
+        table.loc[table["Anlagentyp"] == "BHKW (CHP)", ["p_th"]] = p_fuel * chp_eta_th
+
+        # electric power of electrolyzer
+        electrolyser_cap_el = float(df[f"{scenario}"].loc[df["Parameter"] == "capP_el_electrolyser"])
+        electrolyser_gas = electrolyser_cap_el * ETA_ELECTROLYSER
+        table.loc[table["Anlagentyp"] == "electrolyzer", ["p_el"]] = - electrolyser_cap_el
+        table.loc[table["Anlagentyp"] == "electrolyzer", ["p_th"]] = electrolyser_cap_el - electrolyser_gas
+        table.loc[table["Anlagentyp"] == "electrolyzer", ["p_fuel"]] = electrolyser_gas
+
+        # thermic power of boiler
+        boiler_cap_th = float(df[f"{scenario}"].loc[df["Parameter"] == "capQ_th_boiler"])
+        table.loc[table["Anlagentyp"] == "boiler", ["p_th"]] = boiler_cap_th
+        table.loc[table["Anlagentyp"] == "boiler", ["p_fuel"]] = - boiler_cap_th / ETA_BOILER
+
+        # heat pumps
+        table.loc[table["Anlagentyp"] == "air_heat_pump", ["p_th"]] = p_th_heat_pumps
+        hp1_eta = float(df[f"{scenario}"].loc[df["Parameter"] == "ScaleFactor_HP1"])
+        hp2_eta = float(df[f"{scenario}"].loc[df["Parameter"] == "ScaleFactor_HP2"])
+        table.loc[table["Anlagentyp"] == "air_heat_pump", ["p_el"]] = [p_th_heat_pumps * hp1_eta,
+                                                                       p_th_heat_pumps * hp2_eta]
+        # the info of each scenario is saved in a separate sheet
+        table.to_excel(writer, f'{scenario}', index=True)
+        writer.save()
+
+
+def resilience_attributes_calculation(store_results, excel_file='scenarios_system_dimensions.xlsx',
+                                      csv_file="Anlagentypen.CSV", show_plot=True):
+    """
+    Calculates the Shannon index, the Stirling index and the redundancy of the system from the diversity information
+    and the Anlagentypen table. If show_plot=True, it also creates a radar chart with the results for each scenario
+    considered.
+
+    Arguments:
+        store_results: string. Path where the output will be saved.
+        excel_file: string. Name of the excel file with the diversity information of the system. Default:
+        'scenarios_system_dimensions.xlsx'.
+        csv_file: string. Name of the csv file with the Anlagentypen table. Default: "Anlagentypen.csv".
+        show_plot: boolean. Whether the plot should be made or saved.
+
+    Returns:
+        (if show_plot=False) attributes: list of np.arrays where these arrays correspond to the shannon and stirling
+        indices and redundancy values for each scenarios.
+    """
+
+    # path of the input files are created and excel file is read
+    path = os.path.join("input", "common", "dimension_scenarios")
+    excel_file_path = os.path.join(store_results, "data", excel_file)
+    xl = pd.read_excel(excel_file_path, sheet_name=None, engine="openpyxl")
+    csv_file_path = os.path.join(path, csv_file)
+
+    load = 290  # (aprox.) from excel file "Quarree100_load_15_Modelica"
+
+    # empty lists for each index to be filled up with the corresponding values for each scenario
+    redundancy_list = []
+    stirling_list = []
+    shannon_list = []
+
+    # for each sheet in the excel file, corresponding to each scenario, the index values are obtained
+    for sheet in xl.keys():
+        l_o_s = summon_systems(path_to_excel_file=excel_file_path, sheet_name=sheet, csv_file=csv_file_path)
+        redundancy_list.append(redundancy(load, l_o_s, "p_th"))
+        shannon_list.append(shannon_index(l_o_s, "p_th"))
+        stirling_list.append(stirling_index(l_o_s, "p_th", filepath_for_dim_weights=csv_file_path))
+
+    # the lists are made into arrays for convenience
+    redundancy_index = np.array(redundancy_list)
+    shannon = np.array(shannon_list)
+    stirling = np.array(stirling_list)
+
+    #list with the results
+    attributes = [shannon, stirling, redundancy_index]
+
+    # Transformation of the variables to make the shapes in the plot more visible and different from each other
+    # redundancy_transformed = np.zeros(4)
+    # max_val = redundancy.max() + redundancy.mean()/5
+    # min_val = redundancy.min() - redundancy.mean()/5
+    # val_range = max_val - min_val
+    # for count, element in enumerate(redundancy):
+    #    redundancy_transformed[count] = (element - min_val) * 100 / val_range
+
+    # stirling_transformed = np.zeros(4)
+    # max_val = stirling.max() + stirling.mean()/5
+    # min_val = stirling.min() - stirling.mean()/5
+    # val_range = max_val - min_val
+    # for count, element in enumerate(stirling):
+    #    stirling_transformed[count] = (element - min_val) * 100 / val_range
+
+    # shannon_transformed = np.zeros(4)
+    # max_val = shannon.max() + shannon.mean()/5
+    # min_val = shannon.min() - shannon.mean()/5
+    # val_range = max_val - min_val
+    # for count, element in enumerate(shannon):
+    #    shannon_transformed[count] = (element - min_val) * 100 / val_range
+
+    # The radar chart is done and saved in the "store_results" path
+    if show_plot:
+        scenarios = xl.keys()
+        categories = ["Shannon Index", "Stirling Index", "Redundancy"]
+
+        radar_chart(store_results=store_results, attributes=attributes,
+                    scenarios=scenarios, categories=categories)
+
+
+    # Saving attributes as a .csv file
+    attributes_df = pd.DataFrame()
+    attributes_df["shannon_index"] = attributes[0]
+    attributes_df["stirling_index"] = attributes[1]
+    attributes_df["redundancy"] = attributes[2]
+    attributes_df.to_csv(os.path.join(store_results, "data", "resilience_attributes.csv"))
 
