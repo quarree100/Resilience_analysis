@@ -307,46 +307,46 @@ def anlagen_table_convertor(store_results, scenarios=["A", "B", "C"],
     table = pd.DataFrame(table_info)
 
     # the output excel file is created
-    writer = pd.ExcelWriter(os.path.join(store_results, "data", 'Diversity_info_scenarios.xlsx'))
+    writer = pd.ExcelWriter(os.path.join(store_results, "data", 'scenarios_system_dimensions.xlsx'))
 
     # for each scenario, all the missing power values are filled out according to the input parameters
     # and saved in a separate sheet in the excel file
     for scenario in scenarios:
         # electric power of chp
-        chp_cap_el = float(df[f"Scenario {scenario}"].loc[df["Parameter"] == "capP_el_chp"])
+        chp_cap_el = float(df[f"{scenario}"].loc[df["Parameter"] == "capP_el_chp"])
         table.loc[table["Anlagentyp"] == "BHKW (CHP)", ["p_el"]] = chp_cap_el
 
         # fuel required and thermic power of chp
-        chp_eta_el = float(df[f"Scenario {scenario}"].loc[df["Parameter"] == "eta_el_chp"])
-        chp_eta_th = float(df[f"Scenario {scenario}"].loc[df["Parameter"] == "eta_th_chp"])
+        chp_eta_el = float(df[f"{scenario}"].loc[df["Parameter"] == "eta_el_chp"])
+        chp_eta_th = float(df[f"{scenario}"].loc[df["Parameter"] == "eta_th_chp"])
         p_fuel = chp_cap_el / chp_eta_el
         table.loc[table["Anlagentyp"] == "BHKW (CHP)", ["p_fuel"]] = - p_fuel
         table.loc[table["Anlagentyp"] == "BHKW (CHP)", ["p_th"]] = p_fuel * chp_eta_th
 
         # electric power of electrolyzer
-        electrolyser_cap_el = float(df[f"Scenario {scenario}"].loc[df["Parameter"] == "capP_el_electrolyser"])
+        electrolyser_cap_el = float(df[f"{scenario}"].loc[df["Parameter"] == "capP_el_electrolyser"])
         electrolyser_gas = electrolyser_cap_el * ETA_ELECTROLYSER
         table.loc[table["Anlagentyp"] == "electrolyzer", ["p_el"]] = - electrolyser_cap_el
         table.loc[table["Anlagentyp"] == "electrolyzer", ["p_th"]] = electrolyser_cap_el - electrolyser_gas
         table.loc[table["Anlagentyp"] == "electrolyzer", ["p_fuel"]] = electrolyser_gas
 
         # thermic power of boiler
-        boiler_cap_th = float(df[f"Scenario {scenario}"].loc[df["Parameter"] == "capQ_th_boiler"])
+        boiler_cap_th = float(df[f"{scenario}"].loc[df["Parameter"] == "capQ_th_boiler"])
         table.loc[table["Anlagentyp"] == "boiler", ["p_th"]] = boiler_cap_th
         table.loc[table["Anlagentyp"] == "boiler", ["p_fuel"]] = - boiler_cap_th / ETA_BOILER
 
         # heat pumps
         table.loc[table["Anlagentyp"] == "air_heat_pump", ["p_th"]] = p_th_heat_pumps
-        hp1_eta = float(df[f"Scenario {scenario}"].loc[df["Parameter"] == "ScaleFactor_HP1"])
-        hp2_eta = float(df[f"Scenario {scenario}"].loc[df["Parameter"] == "ScaleFactor_HP2"])
+        hp1_eta = float(df[f"{scenario}"].loc[df["Parameter"] == "ScaleFactor_HP1"])
+        hp2_eta = float(df[f"{scenario}"].loc[df["Parameter"] == "ScaleFactor_HP2"])
         table.loc[table["Anlagentyp"] == "air_heat_pump", ["p_el"]] = [p_th_heat_pumps * hp1_eta,
                                                                        p_th_heat_pumps * hp2_eta]
         # the info of each scenario is saved in a separate sheet
-        table.to_excel(writer, f'Scenario {scenario}', index=True)
+        table.to_excel(writer, f'{scenario}', index=True)
         writer.save()
 
 
-def resilience_attributes_calculation(store_results, excel_file="Diversity_info_scenarios.xlsx",
+def resilience_attributes_calculation(store_results, excel_file='scenarios_system_dimensions.xlsx',
                                       csv_file="Anlagentypen.CSV", show_plot=True):
     """
     Calculates the Shannon index, the Stirling index and the redundancy of the system from the diversity information
@@ -356,7 +356,7 @@ def resilience_attributes_calculation(store_results, excel_file="Diversity_info_
     Arguments:
         store_results: string. Path where the output will be saved.
         excel_file: string. Name of the excel file with the diversity information of the system. Default:
-        "Diversity_info_scenarios.xlsx".
+        'scenarios_system_dimensions.xlsx'.
         csv_file: string. Name of the csv file with the Anlagentypen table. Default: "Anlagentypen.csv".
         show_plot: boolean. Whether the plot should be made or saved.
 
@@ -423,6 +423,10 @@ def resilience_attributes_calculation(store_results, excel_file="Diversity_info_
         radar_chart(store_results=store_results, attributes=attributes,
                     scenarios=scenarios, categories=categories)
 
-    # in the case that no plot was saved, the results are returned as a list of arrays
-    else:
-        return attributes
+
+    # Saving attributes as a .csv file
+    attributes_df = pd.DataFrame()
+    attributes_df["shannon_index"] = attributes[0]
+    attributes_df["stirling_index"] = attributes[1]
+    attributes_df["redundancy"] = attributes[2]
+    attributes_df.to_csv(os.path.join(store_results, "data", "resilience_attributes.csv"))

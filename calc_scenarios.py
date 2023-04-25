@@ -36,7 +36,7 @@ if __name__ == '__main__':
 
     scenarios = read_scenarios_names("Parameter_Values.csv")
     error_files, error_names = generating_error_files_list()
-    error_files = error_files[:1]
+    error_files = error_files[0:2]  # to not run all errors
 
     simulation(
         dimension_filename="Parameter_Values.csv",

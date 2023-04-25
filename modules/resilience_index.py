@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import os
 from modules.plotting_results import resilience_box_plot
+import parse
 
 filenames = ["results/data/results_Scenario A_ErrorProfiles_input.csv",
              "results/data/results_Scenario A_ErrorProfiles_input_Boiler_14_10_18.csv",
@@ -161,12 +162,20 @@ def calculate_resilience(store_results, make_boxplot=True, scenarios=["A", "B", 
     files_list = os.listdir(os.path.join(store_results, "data"))
     csv_list = []
     for file in files_list:
-        if ".CSV" in file:
+        if ".CSV" in file or ".csv" in file:
             csv_list.append(file)
 
     resilience_info = {}  # dictionary where all the resilience info for the table will be saved
 
     for file in csv_list:
+        title = ""
+        for scenario in scenarios:
+            if scenario in file:
+                title = title + scenario
+        for error in errors:
+            if error in file:
+                title = title + " with error " + error.replace("_", " ")
+
         # for each file, the corresponding DataFrame with the temperature info is created
         df = prepare_dataframe(os.path.join(store_results, "data", file))
 
@@ -186,7 +195,7 @@ def calculate_resilience(store_results, make_boxplot=True, scenarios=["A", "B", 
         PL = performance_loss(df, dtnorm=dtnorm)
         RI = resilience_index(MD, RT, PL)
 
-        resilience_info.update(({file.strip(".CSV").replace("_", " "): [MD, RT, PL, RI]}))
+        resilience_info.update(({title: [MD, RT, PL, RI]}))
 
     index = ["MD", "RT", "PL", "RI"]
     resilience = pd.DataFrame(resilience_info, index=index)
