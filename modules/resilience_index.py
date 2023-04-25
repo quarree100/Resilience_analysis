@@ -4,6 +4,7 @@ import os
 from modules.plotting_results import resilience_box_plot
 import parse
 
+
 filenames = ["results/data/results_Scenario A_ErrorProfiles_input.csv",
              "results/data/results_Scenario A_ErrorProfiles_input_Boiler_14_10_18.csv",
              "results/data/results_Scenario A_ErrorProfiles_input_CHP_13_1_18.csv",
@@ -197,6 +198,7 @@ def calculate_resilience(store_results, make_boxplot=True, scenarios=["A", "B", 
 
         resilience_info.update(({title: [MD, RT, PL, RI]}))
 
+
     index = ["MD", "RT", "PL", "RI"]
     resilience = pd.DataFrame(resilience_info, index=index)
     # resilience["Average"] = resilience.mean(axis=1)
@@ -206,3 +208,4 @@ def calculate_resilience(store_results, make_boxplot=True, scenarios=["A", "B", 
 
     if make_boxplot:
         resilience_box_plot(csv_filename, scenarios=scenarios, errors=errors, store_results=store_results)
+

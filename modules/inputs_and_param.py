@@ -222,8 +222,10 @@ def simulation(
 
             df_res = pd.DataFrame(result).set_index("time")
 
+
             csv_filename = "results_" + str(scenario) + "_" + error_file
             df_res.to_csv(os.path.join(store_results, "data", csv_filename))
+
 
             if make_plot:
                 plot(data_file=csv_filename, store_results=store_results, scenarios=dimension_scenarios)

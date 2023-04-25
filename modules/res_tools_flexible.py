@@ -6,13 +6,12 @@ import itertools
 import os
 from modules.plotting_results import radar_chart
 
-
 # The first functions are specific to the folder structure in the project.
 # They read the dimension, weights, types of energy systems and the list of
 # installed systems found in /excel_data/Diversity Index weighted.xlsx
 
 def read_dimensions_and_weights(path_to_excel_file, sheet):
-    id_sheet = pd.read_excel(path_to_excel_file, sheet_name=sheet, usecols="B:G", engine="openpyxl")
+    id_sheet = pd.read_excel(path_to_excel_file, sheet_name=sheet, usecols="B:G", engine="openpyxl")   
     weight_dict = {}
     for dimension in list(id_sheet):
         weight_dict[dimension] = id_sheet[dimension][0]
@@ -32,14 +31,17 @@ def read_energy_system_types(path_to_excel_file = "excel_data/Diversity Index we
 
 def read_energy_systems(path_to_excel_file = "excel_data/Diversity Index weighted.xlsx",sheet_name = "Anlagen"):
     path_to_excel_file = path_to_excel_file
+    
     df = pd.read_excel(path_to_excel_file, sheet_name=sheet_name, engine="openpyxl")
     df = df.set_index(["Index", "Brennstoff"], drop = False)
+
     return df
 
 
 class EnergySystem:
     """energy systems, called via the index and fuel_type.
     """
+
 
 
     def __init__(self, system_index, fuel_type, excel_file = "Diversity Index weighted.xlsx",
@@ -59,11 +61,13 @@ class EnergySystem:
 # the following two functions serve as translation from the excel sheet to a dataframe that the calculating functions can work with.
 
 
+
 def summon_systems(path_to_excel_file = "excel_data/Diversity Index weighted.xlsx",
                    sheet_name = "Anlagen",
                    csv_file = "Anlagentypen.CSV"):
     #getting the data
     df = pd.read_excel(path_to_excel_file, sheet_name=sheet_name, engine="openpyxl")
+
     l_o_s = []
     for i in range(len(df)):
         info = df.iloc[i]
@@ -114,7 +118,6 @@ def unpacking_systems(list_of_systems, attributes = False, inout = False, metada
         return df, mdat_att
     else:
         return df
-
 
 
 def shannon_index(list_of_systems, energy_provision):
@@ -430,3 +433,4 @@ def resilience_attributes_calculation(store_results, excel_file='scenarios_syste
     attributes_df["stirling_index"] = attributes[1]
     attributes_df["redundancy"] = attributes[2]
     attributes_df.to_csv(os.path.join(store_results, "data", "resilience_attributes.csv"))
+

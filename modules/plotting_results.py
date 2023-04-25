@@ -2,7 +2,10 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import parse
 import plotly.graph_objects as go
+import modules.res_tools_flexible as res
+import numpy as np
 import os
+
 
 vars = ['controller.calc_Qdot_production.u_Qdot_Boiler',
         'controller.calc_Qdot_production.u_Qdot_CHP',
@@ -19,6 +22,7 @@ vars = ['controller.calc_Qdot_production.u_Qdot_Boiler',
 def temperature_control(scenarios=["A", "B", "C"], errors=["Boiler_14_10_18", "CHP_13_1_18"],
                             temp_var="fMU_PhyModel.temperature_HeatGrid_FF.T",
                             temp_set="controller.u_T_HeatGrid_FF_set", store_results=None):
+
     """Plots a figure with a subplot for each scenario, where the temperatures for each error file are compared with
     each other and the set temperature.The last subplot shows all temperature variables for all scenarios together.
 
@@ -239,6 +243,7 @@ def separate_plots(filename="results_Scenario A_ErrorProfiles_input.csv", vars=v
     plt.savefig("production_plot" + title.replace(" ", "_") + ".png")
     plt.clf()
 
+
 def plot(data_file="results_Scenario A_ErrorProfiles_input.csv", store_results=None,
          vars=vars, scenarios=["A", "B", "C"]):
     """
@@ -347,3 +352,4 @@ def radar_chart(store_results, attributes, scenarios, categories):
     #fig.show()
     plot_path = os.path.join(store_results, "plots", "radar_chart.png")
     fig.write_image(plot_path)  # specifically kaleido v0.1.0.post1 was required for this line
+
