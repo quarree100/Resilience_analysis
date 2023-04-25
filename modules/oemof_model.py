@@ -22,7 +22,7 @@ def create_solph_model(
         eta_el_chp=0.38,
         eta_th_chp=0.55,
         capacity_hp_air=1000,
-        capacity_hp_ground=500,
+        # capacity_hp_ground=500,
         capacity_electrlysis_el=250,
         capacity_pv=1500,
         capacity_thermal_storage_m3=1000,
@@ -187,24 +187,26 @@ def create_solph_model(
         }
     )
 
-    hp_ground = solph.Transformer(
-        label="heatpump_ground",
-        inputs={
-            b_elec: solph.Flow(
-                nominal_value=capacity_hp_ground,
-                min=techparam["heatpump_ground"]["minimum_load"],
-                nonconvex=solph.options.NonConvex(),
-            )
-        },
-        outputs={
-            b_heat_generation: solph.Flow(),
-        },
-        conversion_factors={
-            b_heat_generation: techparam["heatpump_ground"]["cop"],
-        }
-    )
+    # hp_ground = solph.Transformer(
+    #     label="heatpump_ground",
+    #     inputs={
+    #         b_elec: solph.Flow(
+    #             nominal_value=capacity_hp_ground,
+    #             min=techparam["heatpump_ground"]["minimum_load"],
+    #             nonconvex=solph.options.NonConvex(),
+    #         )
+    #     },
+    #     outputs={
+    #         b_heat_generation: solph.Flow(),
+    #     },
+    #     conversion_factors={
+    #         b_heat_generation: techparam["heatpump_ground"]["cop"],
+    #     }
+    # )
 
-    energysystem.add(hp_air, hp_ground, chp, boiler, ely)
+    energysystem.add(hp_air,
+                     # hp_ground,
+                     chp, boiler, ely)
 
     # todo : replace the capacity calculation by a proper calculation
     storage_capa = \
@@ -248,7 +250,7 @@ def create_solph_model(
 
 
 def solve_model(energysystem, emission_limit=1000000000):
-    solver = "cbc"  # 'glpk', 'gurobi',....
+    solver = "gurobi"  # 'glpk', 'gurobi',....
     debug = False  # Set number_of_timesteps to 3 to get a readable lp-file.
     solver_verbose = True  # show/hide solver output
 
@@ -387,14 +389,14 @@ def calculate_oemof_model(
     cap_hp_air = dim_sc.loc["ScaleFactor_HP1", "Value"] * 500 +\
                  dim_sc.loc["ScaleFactor_HP2", "Value"] * 500
 
-    cap_hp_ground = 0
+    # cap_hp_ground = 0
 
     # capacities of heat generation and storage units
     dim_kwargs = {
         "capacity_boiler": dim_sc.loc["capQ_th_boiler", "Value"],
         "capacity_chp_el": dim_sc.loc["capP_el_chp", "Value"],
         "capacity_hp_air": cap_hp_air,
-        "capacity_hp_ground": cap_hp_ground,
+        # "capacity_hp_ground": cap_hp_ground,
         "capacity_electrlysis_el": dim_sc.loc["capP_el_electrolyser", "Value"],
         "capacity_pv": dim_sc.loc["capP_el_pv", "Value"],
         "capacity_thermal_storage_m3": volumen_tes,
