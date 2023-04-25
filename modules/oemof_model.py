@@ -9,6 +9,7 @@ from oemof.network.graph import create_nx_graph
 # from q100opt.plots import plot_es_graph
 from matplotlib import pyplot as plt
 import datetime
+from copy import deepcopy
 
 import logging
 
@@ -485,9 +486,11 @@ def calculate_oemof_model(
 
     emission_max = esys_max.results["meta"]["emission_value"]
     cost_max = esys_max.results["meta"]["objective"]
+    results_max = deepcopy(esys_max.results["main"])
 
     esys_min = solve_model(esys_cost, emission_limit=emission_min + 0.1)
     costs_min = esys_min.results["meta"]["objective"]
+    results_min = deepcopy(esys_min.results["main"])
 
     emission_limit_mid = \
         factor_emission_reduction * (
@@ -499,6 +502,7 @@ def calculate_oemof_model(
 
     emission_mid = esys_mid.results["meta"]["emission_value"]
     costs_mid = esys_mid.results["meta"]["objective"]
+    results_mid = deepcopy(esys_mid.results["main"])
 
     # plots
     if show_plots:
@@ -516,35 +520,50 @@ def calculate_oemof_model(
 
     # get results
     d_results = {
-        "cost_optimal": esys_cost.results["main"],
-        "emission_optimal": esys_emission.results["main"],
-        "mid_case": esys_mid.results["main"],
+        "cost_optimal": results_max,
+        "mid_case": results_mid,
+        "emission_optimal": results_min,
     }
 
     d_results_heat_generation = {}
+    d_balances = {}
 
     for k, v in d_results.items():
 
-        results = esys_mid.results["main"]
+        results = v
 
         th_storage = solph.views.node(results, "thermal_storage")["sequences"]
         boiler = solph.views.node(results, "gas_boiler")["sequences"]
         ely = solph.views.node(results, "electrolysis")["sequences"]
         chp = solph.views.node(results, "chp")["sequences"]
         hp_air = solph.views.node(results, "heatpump_air")["sequences"]
-        hp_ground = solph.views.node(results, "heatpump_ground")["sequences"]
+        # hp_ground = solph.views.node(results, "heatpump_ground")["sequences"]
 
-        list_comps = [boiler, chp, hp_air, hp_ground, ely, th_storage]
+        electricity_bus = solph.views.node(results, "electricity")["sequences"].sum()
+        heat_generation_bus = solph.views.node(results, "heat_generation")["sequences"].sum()
+
+        list_comps = [boiler, chp, hp_air,
+                      # hp_ground,
+                      ely, th_storage]
 
         df_restuls = pd.concat(list_comps, axis=1)
 
+        df_energy_balances = \
+            pd.concat([electricity_bus, heat_generation_bus], axis=0)
+
         d_results_heat_generation.update({k: df_restuls})
+
+        d_balances.update({k: df_energy_balances})
 
         if show_plots:
             for comp in list_comps:
                 comp.plot()
                 plt.title(k)
                 plt.show()
+
+    df_balances = pd.DataFrame(d_balances)
+
+    print("Sum of electricity and heat buses values: \n", df_balances)
 
     return d_results_heat_generation["mid_case"]
 
