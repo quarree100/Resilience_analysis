@@ -248,7 +248,7 @@ def create_solph_model(
 
 
 def solve_model(energysystem, emission_limit=1000000000):
-    solver = "gurobi"  # 'glpk', 'gurobi',....
+    solver = "cbc"  # 'glpk', 'gurobi',....
     debug = False  # Set number_of_timesteps to 3 to get a readable lp-file.
     solver_verbose = True  # show/hide solver output
 
@@ -381,6 +381,7 @@ def calculate_oemof_model(
 
     cap_hp_ground = 0
 
+    # capacities of heat generation and storage units
     dim_kwargs = {
         "capacity_boiler": dim_sc.loc["capQ_th_boiler", "Value"],
         "capacity_chp_el": dim_sc.loc["capP_el_chp", "Value"],
@@ -402,7 +403,7 @@ def calculate_oemof_model(
                              sep=",", skiprows=[0])
 
     timeseries.index = pd.DatetimeIndex(
-        pd.date_range(start="01-01-2022", freq="15min", periods=8760 * 4)
+        pd.date_range(start=simulation_period[0], freq="15min", periods=8760 * 4)
     )
 
     # Create and solve oemof-solph model
