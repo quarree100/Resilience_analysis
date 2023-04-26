@@ -9,6 +9,9 @@ from oemof.network.graph import create_nx_graph
 # from q100opt.plots import plot_es_graph
 from matplotlib import pyplot as plt
 import datetime
+from copy import deepcopy
+
+from modules import pre_calculation as precalc
 
 import logging
 
@@ -22,10 +25,11 @@ def create_solph_model(
         eta_el_chp=0.38,
         eta_th_chp=0.55,
         capacity_hp_air=1000,
-        capacity_hp_ground=500,
+        # capacity_hp_ground=500,
         capacity_electrlysis_el=250,
         capacity_pv=1500,
-        capacity_thermal_storage_m3=1000,
+        d_TES=10,
+        h_TES=35.72,
         weight_cost_emission=0,
 ):
 
@@ -187,37 +191,41 @@ def create_solph_model(
         }
     )
 
-    hp_ground = solph.Transformer(
-        label="heatpump_ground",
-        inputs={
-            b_elec: solph.Flow(
-                nominal_value=capacity_hp_ground,
-                min=techparam["heatpump_ground"]["minimum_load"],
-                nonconvex=solph.options.NonConvex(),
-            )
-        },
-        outputs={
-            b_heat_generation: solph.Flow(),
-        },
-        conversion_factors={
-            b_heat_generation: techparam["heatpump_ground"]["cop"],
-        }
+    # hp_ground = solph.Transformer(
+    #     label="heatpump_ground",
+    #     inputs={
+    #         b_elec: solph.Flow(
+    #             nominal_value=capacity_hp_ground,
+    #             min=techparam["heatpump_ground"]["minimum_load"],
+    #             nonconvex=solph.options.NonConvex(),
+    #         )
+    #     },
+    #     outputs={
+    #         b_heat_generation: solph.Flow(),
+    #     },
+    #     conversion_factors={
+    #         b_heat_generation: techparam["heatpump_ground"]["cop"],
+    #     }
+    # )
+
+    energysystem.add(hp_air,
+                     # hp_ground,
+                     chp, boiler, ely)
+
+    # Note that for all other values the default values of precalc.configure_TES
+    # are used.
+    Q_tes, gamma, beta = precalc.configure_TES(
+        d_TES=d_TES,
+        h_TES=h_TES,
     )
-
-    energysystem.add(hp_air, hp_ground, chp, boiler, ely)
-
-    # todo : replace the capacity calculation by a proper calculation
-    storage_capa = \
-        capacity_thermal_storage_m3 * \
-        techparam["thermal_storage"]["capacity_per_volume"]
 
     thermal_storage = solph.GenericStorage(
         label="thermal_storage",
         inputs={b_heat_generation: solph.Flow()},
         outputs={b_heat_storage_out: solph.Flow()},
-        nominal_storage_capacity=storage_capa,
-        loss_rate=timeseries["TES_SOC_loss_factor"],
-        fixed_losses_relative=timeseries["TES_fix_loss_factor"],
+        nominal_storage_capacity=Q_tes,
+        loss_rate=beta,
+        fixed_losses_relative=gamma,
     )
 
     grid_pump = solph.Transformer(
@@ -238,17 +246,18 @@ def create_solph_model(
 
     energysystem.add(grid_pump, thermal_storage)
 
-    # plot_es_graph(energysystem, show=True)
-
-    # gr = ESGraphRenderer(energy_system=energysystem, filepath="energy_system",
-    #                      img_format="png")
+    # from oemof_visio import ESGraphRenderer
+    #
+    # gr = ESGraphRenderer(energy_system=energysystem,
+    #                      filepath="docs/energy_system_graph.svg",
+    #                      img_format="svg")
     # gr.view()
 
     return energysystem
 
 
 def solve_model(energysystem, emission_limit=1000000000):
-    solver = "cbc"  # 'glpk', 'gurobi',....
+    solver = "gurobi"  # 'glpk', 'gurobi',....
     debug = False  # Set number_of_timesteps to 3 to get a readable lp-file.
     solver_verbose = True  # show/hide solver output
 
@@ -334,7 +343,8 @@ def plot_results(esys):
 
 def calculate_oemof_model(
         dimension_scenario,
-        simulation_period=("01-01-2022", 365),
+        global_scenario,
+        simulation_period=("01-01-2018", 365),
         factor_emission_reduction=0.5,
         path_oemof=os.path.join("input", "solph"),
         path_common=os.path.join("input", "common"),
@@ -352,6 +362,9 @@ def calculate_oemof_model(
 
     Parameters
     ----------
+    dimension_scenario
+    global_scenario : str
+        Scenario name of gloabel scenario.
     simulation_period : tuple
         Start date and length of period in days
     factor_emission_reduction : scalar
@@ -367,46 +380,79 @@ def calculate_oemof_model(
 
     """
 
-    dim_sc = pd.read_csv(os.path.join(
-        path_common, "dimension_scenarios", dimension_scenario + ".csv"),
-        index_col=0,
+    # get and prepare all dimensioning data ###################################
+
+    dim_sc_table = pd.read_csv(os.path.join(
+        path_common, "dimension_scenarios", "Parameter_Values.csv"),
+        index_col=0, sep=";",
     )
 
-    volumen_tes = \
-        (0.5 * dim_sc.loc["d_tes", "Value"]) ** 2 * math.pi * \
-        dim_sc.loc["h_tes", "Value"]
+    dim_sc = dim_sc_table.T.loc[dimension_scenario]
 
-    cap_hp_air = dim_sc.loc["ScaleFactor_HP1", "Value"] * 500 +\
-                 dim_sc.loc["ScaleFactor_HP2", "Value"] * 500
+    # capacity heat pump air
+    cap_hp_air = dim_sc.loc["ScaleFactor_HP1"] * 500 +\
+                 dim_sc.loc["ScaleFactor_HP2"] * 500
 
-    cap_hp_ground = 0
+    # cap_hp_ground = 0
 
     # capacities of heat generation and storage units
     dim_kwargs = {
-        "capacity_boiler": dim_sc.loc["capQ_th_boiler", "Value"],
-        "capacity_chp_el": dim_sc.loc["capP_el_chp", "Value"],
+        "capacity_boiler": dim_sc.loc["capQ_th_boiler"],
+        "capacity_chp_el": dim_sc.loc["capP_el_chp"],
         "capacity_hp_air": cap_hp_air,
-        "capacity_hp_ground": cap_hp_ground,
-        "capacity_electrlysis_el": dim_sc.loc["capP_el_electrolyser", "Value"],
-        "capacity_pv": dim_sc.loc["capP_el_pv", "Value"],
-        "capacity_thermal_storage_m3": volumen_tes,
-        "eta_el_chp": dim_sc.loc["eta_el_chp", "Value"],
-        "eta_th_chp": dim_sc.loc["eta_th_chp", "Value"],
+        # "capacity_hp_ground": cap_hp_ground,
+        "capacity_electrlysis_el": dim_sc.loc["capP_el_electrolyser"],
+        "capacity_pv": dim_sc.loc["capP_el_pv"],
+        "d_TES": dim_sc.loc["d_tes"],
+        "h_TES": dim_sc.loc["h_tes"],
+        "eta_el_chp": dim_sc.loc["eta_el_chp"],
+        "eta_th_chp": dim_sc.loc["eta_th_chp"],
     }
 
-    tech_param = os.path.join(path_oemof, "parameter.yaml")
+    # load data of local scenarios ############################################
+
+    tech_param = os.path.join(path_oemof, "parameter_local.yaml")
 
     with open(tech_param) as file:
         tech_param = yaml.safe_load(file)
 
-    timeseries = pd.read_csv(os.path.join(path_oemof, "Timeseries_15min.csv"),
-                             sep=",", skiprows=[0])
+    # load the table with the commodity parameters costs and emissions
+    df_global_param = pd.read_csv(os.path.join(
+        path_oemof, "parameter_global.csv"
+    ), index_col=[0, 1])
 
-    timeseries.index = pd.DatetimeIndex(
-        pd.date_range(start=simulation_period[0], freq="15min", periods=8760 * 4)
+    # add the commodity data to the tech_param dict
+    tech_param.update(
+        df_global_param.loc[:, global_scenario].unstack().T.to_dict()
     )
 
-    # Create and solve oemof-solph model
+    # load data of global scenarios ###########################################
+
+    # load the timeseries with the local parameter
+    timeseries = pd.read_csv(
+        os.path.join(path_oemof, "Timeseries_15min_local.csv"),
+        sep=",", skiprows=[0],
+    )
+
+    timeseries.index = pd.DatetimeIndex(
+        pd.date_range(start='01-01-2018', freq="15min", periods=8760 * 4)
+    )
+
+    # load global timeseries table
+    timeseries_global = pd.read_csv(os.path.join(
+        path_oemof, "Timeseries_15min_global.csv"
+    ), header=[0, 1], index_col=0)
+
+    timeseries_global = timeseries_global.loc[:, (["2020"], slice(None))]
+    timeseries_global.columns = timeseries_global.columns.droplevel(0)
+    timeseries_global.index = pd.DatetimeIndex(
+        pd.date_range(start='01-01-2018', freq="15min", periods=8760*4)
+    )
+
+    # merge the global timeseries to local timeseries dataframe
+    timeseries = pd.concat([timeseries, timeseries_global], axis=1)
+
+    # Create and solve oemof-solph model ######################################
 
     start = pd.to_datetime(simulation_period[0], yearfirst=False)
     end = start + pd.Timedelta(simulation_period[1], unit="D")
@@ -429,7 +475,7 @@ def calculate_oemof_model(
 
     # what is the emission value in the cost optimal case?
 
-    logging.info("Calculate maximum emission limit")
+    logging.info("Calculate emission value in the cost-optimal case")
 
     esys_cost = create_solph_model(
         techparam=tech_param,
@@ -443,9 +489,11 @@ def calculate_oemof_model(
 
     emission_max = esys_max.results["meta"]["emission_value"]
     cost_max = esys_max.results["meta"]["objective"]
+    results_max = deepcopy(esys_max.results["main"])
 
     esys_min = solve_model(esys_cost, emission_limit=emission_min + 0.1)
     costs_min = esys_min.results["meta"]["objective"]
+    results_min = deepcopy(esys_min.results["main"])
 
     emission_limit_mid = \
         factor_emission_reduction * (
@@ -457,6 +505,7 @@ def calculate_oemof_model(
 
     emission_mid = esys_mid.results["meta"]["emission_value"]
     costs_mid = esys_mid.results["meta"]["objective"]
+    results_mid = deepcopy(esys_mid.results["main"])
 
     # plots
     if show_plots:
@@ -473,25 +522,53 @@ def calculate_oemof_model(
         plt.show()
 
     # get results
-    results = esys_mid.results["main"]
+    d_results = {
+        "cost_optimal": results_max,
+        "mid_case": results_mid,
+        "emission_optimal": results_min,
+    }
 
-    th_storage = solph.views.node(results, "thermal_storage")["sequences"]
-    boiler = solph.views.node(results, "gas_boiler")["sequences"]
-    ely = solph.views.node(results, "electrolysis")["sequences"]
-    chp = solph.views.node(results, "chp")["sequences"]
-    hp_air = solph.views.node(results, "heatpump_air")["sequences"]
-    hp_ground = solph.views.node(results, "heatpump_ground")["sequences"]
+    d_results_heat_generation = {}
+    d_balances = {}
 
-    list_comps = [boiler, chp, hp_air, hp_ground, ely, th_storage]
+    for k, v in d_results.items():
 
-    df_restuls = pd.concat(list_comps, axis=1)
+        results = v
 
-    if show_plots:
-        for comp in list_comps:
-            comp.plot()
-            plt.show()
+        th_storage = solph.views.node(results, "thermal_storage")["sequences"]
+        boiler = solph.views.node(results, "gas_boiler")["sequences"]
+        ely = solph.views.node(results, "electrolysis")["sequences"]
+        chp = solph.views.node(results, "chp")["sequences"]
+        hp_air = solph.views.node(results, "heatpump_air")["sequences"]
+        # hp_ground = solph.views.node(results, "heatpump_ground")["sequences"]
 
-    return df_restuls
+        electricity_bus = solph.views.node(results, "electricity")["sequences"].sum()
+        heat_generation_bus = solph.views.node(results, "heat_generation")["sequences"].sum()
+
+        list_comps = [boiler, chp, hp_air,
+                      # hp_ground,
+                      ely, th_storage]
+
+        df_restuls = pd.concat(list_comps, axis=1)
+
+        df_energy_balances = \
+            pd.concat([electricity_bus, heat_generation_bus], axis=0)
+
+        d_results_heat_generation.update({k: df_restuls})
+
+        d_balances.update({k: df_energy_balances})
+
+        if show_plots:
+            for comp in list_comps:
+                comp.plot()
+                plt.title(k)
+                plt.show()
+
+    df_balances = pd.DataFrame(d_balances)
+
+    print("Sum of electricity and heat buses values: \n", df_balances)
+
+    return d_results_heat_generation["mid_case"]
 
 
 def prepare_schedules(df):
@@ -517,7 +594,7 @@ if __name__ == '__main__':
 
     # perspective function arguments
 
-    simulation_period = ("15-02-2022", 14)  # start date, length of period in days
+    simulation_period = ("15-02-2018", 14)  # start date, length of period in days
 
     # more or less fixed input paths (no function attributes)
 
@@ -530,7 +607,7 @@ if __name__ == '__main__':
                              sep=",")
 
     timeseries.index = pd.DatetimeIndex(
-        pd.date_range(start="01-01-2022", freq="15min", periods=8760*4)
+        pd.date_range(start="01-01-2018", freq="15min", periods=8760*4)
     )
 
     with open(tech_param) as file:

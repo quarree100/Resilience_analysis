@@ -74,12 +74,14 @@ def configure_TES(
 
 
         Q_TES_load = ((T_TES_max-T_TES_min)*V_TES*cp_water*rho_water)/(3600*1000)
-        beta_qdot_loss = UxA * (T_TES_max - T_TES_min)/Q_TES_load
+
+        # 0.001 > konvert to [kW]
+        beta_qdot_loss = (0.001 * UxA * (T_TES_max - T_TES_min)) /Q_TES_load
 
         if len(T_amb) == 1:
-            gamma_qdot_loss = UxA*(T_TES_min-T_amb[0])/Q_TES_load
+            gamma_qdot_loss = 0.001 * UxA*(T_TES_min-T_amb[0])/Q_TES_load
         else:
-            gamma_qdot_loss = UxA*(T_TES_min-T_amb)/Q_TES_load
+            gamma_qdot_loss = 0.001 * UxA*(T_TES_min-T_amb)/Q_TES_load
 
         return Q_TES_load, gamma_qdot_loss, beta_qdot_loss
 
