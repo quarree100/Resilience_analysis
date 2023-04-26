@@ -11,6 +11,8 @@ from matplotlib import pyplot as plt
 import datetime
 from copy import deepcopy
 
+from modules import pre_calculation as precalc
+
 import logging
 
 
@@ -26,7 +28,8 @@ def create_solph_model(
         # capacity_hp_ground=500,
         capacity_electrlysis_el=250,
         capacity_pv=1500,
-        capacity_thermal_storage_m3=1000,
+        d_TES=10,
+        h_TES=35.72,
         weight_cost_emission=0,
 ):
 
@@ -209,18 +212,20 @@ def create_solph_model(
                      # hp_ground,
                      chp, boiler, ely)
 
-    # todo : replace the capacity calculation by a proper calculation
-    storage_capa = \
-        capacity_thermal_storage_m3 * \
-        techparam["thermal_storage"]["capacity_per_volume"]
+    # Note that for all other values the default values of precalc.configure_TES
+    # are used.
+    Q_tes, gamma, beta = precalc.configure_TES(
+        d_TES=d_TES,
+        h_TES=h_TES,
+    )
 
     thermal_storage = solph.GenericStorage(
         label="thermal_storage",
         inputs={b_heat_generation: solph.Flow()},
         outputs={b_heat_storage_out: solph.Flow()},
-        nominal_storage_capacity=storage_capa,
-        loss_rate=timeseries["TES_SOC_loss_factor"],
-        fixed_losses_relative=timeseries["TES_fix_loss_factor"],
+        nominal_storage_capacity=Q_tes,
+        loss_rate=beta,
+        fixed_losses_relative=gamma,
     )
 
     grid_pump = solph.Transformer(
@@ -384,11 +389,6 @@ def calculate_oemof_model(
 
     dim_sc = dim_sc_table.T.loc[dimension_scenario]
 
-    # todo : check storage capacity calculation
-    volumen_tes = \
-        (0.5 * dim_sc.loc["d_tes"]) ** 2 * math.pi * \
-        dim_sc.loc["h_tes"]
-
     # capacity heat pump air
     cap_hp_air = dim_sc.loc["ScaleFactor_HP1"] * 500 +\
                  dim_sc.loc["ScaleFactor_HP2"] * 500
@@ -403,7 +403,8 @@ def calculate_oemof_model(
         # "capacity_hp_ground": cap_hp_ground,
         "capacity_electrlysis_el": dim_sc.loc["capP_el_electrolyser"],
         "capacity_pv": dim_sc.loc["capP_el_pv"],
-        "capacity_thermal_storage_m3": volumen_tes,
+        "d_TES": dim_sc.loc["d_tes"],
+        "h_TES": dim_sc.loc["h_tes"],
         "eta_el_chp": dim_sc.loc["eta_el_chp"],
         "eta_th_chp": dim_sc.loc["eta_th_chp"],
     }
