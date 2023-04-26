@@ -6,14 +6,14 @@ import modules.oemof_model as om
 path_oemof = os.path.join("input", "solph")
 
 
-simulation_period = ("01-01-2018", 7)
+simulation_period = ("03-03-2018", 4)  # max 365 days in 2018
 factor_emission_reduction = 0.5 #between 0 (cost-optimized) and 1 (emission-optimized)
 
 
 global_scenarios = [
     # "2020",
-    # "2030-syn-gas-low",
-    "2030-syn-gas-high",
+    "2030-syn-gas-low",
+    # "2030-syn-gas-high",
     # "2050-syn-gas-low",
     # "2050-syn-gas-high",
 ]

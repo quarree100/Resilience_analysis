@@ -431,20 +431,19 @@ def calculate_oemof_model(
     )
 
     timeseries.index = pd.DatetimeIndex(
-        pd.date_range(start=simulation_period[0], freq="15min", periods=8760 * 4)
+        pd.date_range(start='01-01-2018', freq="15min", periods=8760 * 4)
     )
 
     # load global timeseries table
     timeseries_global = pd.read_csv(os.path.join(
-        path_oemof, "Timeseries_1h_global.csv"
+        path_oemof, "Timeseries_15min_global.csv"
     ), header=[0, 1], index_col=0)
 
     timeseries_global = timeseries_global.loc[:, (["2020"], slice(None))]
     timeseries_global.columns = timeseries_global.columns.droplevel(0)
     timeseries_global.index = pd.DatetimeIndex(
-        pd.date_range(start='01-01-2018', freq="1H", periods=8760)
+        pd.date_range(start='01-01-2018', freq="15min", periods=8760*4)
     )
-    timeseries_global = timeseries_global.resample('15min').interpolate()
 
     # merge the global timeseries to local timeseries dataframe
     timeseries = pd.concat([timeseries, timeseries_global], axis=1)
