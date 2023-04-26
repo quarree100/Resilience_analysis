@@ -377,33 +377,35 @@ def calculate_oemof_model(
 
     # get and prepare all dimensioning data ###################################
 
-    # TODO : I think you changed the format of the dimension scenarios,
-    #        so the following needs to be adapted:
-    dim_sc = pd.read_csv(os.path.join(
-        path_common, "dimension_scenarios", dimension_scenario + ".csv"),
-        index_col=0,
+    dim_sc_table = pd.read_csv(os.path.join(
+        path_common, "dimension_scenarios", "Parameter_Values.csv"),
+        index_col=0, sep=";",
     )
 
-    volumen_tes = \
-        (0.5 * dim_sc.loc["d_tes", "Value"]) ** 2 * math.pi * \
-        dim_sc.loc["h_tes", "Value"]
+    dim_sc = dim_sc_table.T.loc[dimension_scenario]
 
-    cap_hp_air = dim_sc.loc["ScaleFactor_HP1", "Value"] * 500 +\
-                 dim_sc.loc["ScaleFactor_HP2", "Value"] * 500
+    # todo : check storage capacity calculation
+    volumen_tes = \
+        (0.5 * dim_sc.loc["d_tes"]) ** 2 * math.pi * \
+        dim_sc.loc["h_tes"]
+
+    # capacity heat pump air
+    cap_hp_air = dim_sc.loc["ScaleFactor_HP1"] * 500 +\
+                 dim_sc.loc["ScaleFactor_HP2"] * 500
 
     # cap_hp_ground = 0
 
     # capacities of heat generation and storage units
     dim_kwargs = {
-        "capacity_boiler": dim_sc.loc["capQ_th_boiler", "Value"],
-        "capacity_chp_el": dim_sc.loc["capP_el_chp", "Value"],
+        "capacity_boiler": dim_sc.loc["capQ_th_boiler"],
+        "capacity_chp_el": dim_sc.loc["capP_el_chp"],
         "capacity_hp_air": cap_hp_air,
         # "capacity_hp_ground": cap_hp_ground,
-        "capacity_electrlysis_el": dim_sc.loc["capP_el_electrolyser", "Value"],
-        "capacity_pv": dim_sc.loc["capP_el_pv", "Value"],
+        "capacity_electrlysis_el": dim_sc.loc["capP_el_electrolyser"],
+        "capacity_pv": dim_sc.loc["capP_el_pv"],
         "capacity_thermal_storage_m3": volumen_tes,
-        "eta_el_chp": dim_sc.loc["eta_el_chp", "Value"],
-        "eta_th_chp": dim_sc.loc["eta_th_chp", "Value"],
+        "eta_el_chp": dim_sc.loc["eta_el_chp"],
+        "eta_th_chp": dim_sc.loc["eta_th_chp"],
     }
 
     # load data of local scenarios ############################################

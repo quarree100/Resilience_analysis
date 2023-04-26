@@ -19,9 +19,9 @@ global_scenarios = [
 ]
 
 dimension_scenarios = [
-    "Scenario-A",
-    # "Scenario-B",
-    # "Scenario-C",
+    "Scenario A",
+    # "Scenario B",
+    # "Scenario C",
 ]
 
 for global_sc in global_scenarios:
