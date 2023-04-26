@@ -241,10 +241,11 @@ def create_solph_model(
 
     energysystem.add(grid_pump, thermal_storage)
 
-    # plot_es_graph(energysystem, show=True)
+    # from oemof_visio import ESGraphRenderer
     #
-    # gr = ESGraphRenderer(energy_system=energysystem, filepath="energy_system",
-    #                      img_format="png")
+    # gr = ESGraphRenderer(energy_system=energysystem,
+    #                      filepath="docs/energy_system_graph.svg",
+    #                      img_format="svg")
     # gr.view()
 
     return energysystem
