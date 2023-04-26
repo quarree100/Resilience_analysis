@@ -16,5 +16,3 @@ heatpump_ground:
   cop: 4.0
   minimum_load: 0.25
   fullloadhours_max: 2500
-thermal_storage:
-  capacity_per_volume: 30  # [kWh/m³]
