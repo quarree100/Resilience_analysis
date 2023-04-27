@@ -6,7 +6,7 @@ import modules.oemof_model as om
 path_oemof = os.path.join("input", "solph")
 
 
-simulation_period = ("03-03-2018", 4)  # max 365 days in 2018
+simulation_period = ("01-01-2018", 365)  # max 365 days in 2018
 factor_emission_reduction = 0.5 #between 0 (cost-optimized) and 1 (emission-optimized)
 
 
@@ -40,6 +40,7 @@ for global_sc in global_scenarios:
             factor_emission_reduction=factor_emission_reduction,
             path_oemof=path_oemof,
             global_scenario=global_sc,
+            switch_to_hour_resolution=True,
         )
 
         # export oemof results

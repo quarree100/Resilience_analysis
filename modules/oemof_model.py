@@ -349,6 +349,7 @@ def calculate_oemof_model(
         path_oemof=os.path.join("input", "solph"),
         path_common=os.path.join("input", "common"),
         show_plots=True,
+        switch_to_hour_resolution=False,
 ):
     """
     Calculates the oemof-solph model and return the unit commitment
@@ -459,6 +460,9 @@ def calculate_oemof_model(
     time_slice = timeseries[start:end]
 
     # what is the minimum possible emission value?
+
+    if switch_to_hour_resolution:
+        time_slice = time_slice.resample('1H').mean()
 
     logging.info("Calculate minimum emission limit")
 
