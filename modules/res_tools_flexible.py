@@ -1,10 +1,13 @@
 #author: Thies, 28.03.2022
 
-import pandas as pd
-import numpy as np
 import itertools
 import os
-from modules.plotting_results import radar_chart
+
+import numpy as np
+import pandas as pd
+
+from plotting_results import radar_chart
+
 
 # The first functions are specific to the folder structure in the project.
 # They read the dimension, weights, types of energy systems and the list of
