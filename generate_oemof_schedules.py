@@ -51,7 +51,7 @@ for global_sc in global_scenarios:
 
         # export schedules
         schedules_for_modelica.to_csv(
-            os.path.join("results", "modelica_schedules", scenario_name + ".csv")
+            os.path.join("input", "modelica", "profiles", scenario_name + ".csv")
         )
 
 print("finished.")
