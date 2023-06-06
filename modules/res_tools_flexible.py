@@ -6,7 +6,7 @@ import os
 import numpy as np
 import pandas as pd
 
-from plotting_results import radar_chart
+from modules.plotting_results import radar_chart
 
 
 # The first functions are specific to the folder structure in the project.
