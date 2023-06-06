@@ -258,7 +258,7 @@ def create_solph_model(
 
 
 def solve_model(energysystem, emission_limit=1000000000):
-    solver = "gurobi"  # 'glpk', 'gurobi',....
+    solver = "gurobi"  # 'glpk', 'cbc',....
     debug = False  # Set number_of_timesteps to 3 to get a readable lp-file.
     solver_verbose = True  # show/hide solver output
 

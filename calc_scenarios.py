@@ -22,13 +22,14 @@ from modules.res_tools_flexible import anlagen_table_convertor, resilience_attri
 
 # Input files
 # err_file = "ErrorProfiles_input.CSV"
+
 sch_file = "2030-syn-gas-low_Scenario A_ER-0.5_01-01-2018_365.CSV"  # "ScheduleProfiles_input.CSV"
 T_file = "T_amp_input.CSV"
 load_file = "LoadProfiles_input.CSV"
 
 if __name__ == '__main__':
 
-    execution_time = datetime.datetime.now()
+    execution_time = datetime.now()
     ex_time = execution_time.strftime("%m%d%Y_%H_%M_%S")
     store_results = os.path.join("results", ex_time)
     os.mkdir(store_results)
