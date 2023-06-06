@@ -1,6 +1,11 @@
+import datetime
+import os
+
 from modules.inputs_and_param import simulation
 from modules.plotting_results import temperature_control
 from modules.resilience_index import calculate_resilience
+from modules.scenarios_and_errors import read_scenarios_names, generating_error_files_list
+from modules.res_tools_flexible import anlagen_table_convertor, resilience_attributes_calculation
 
 #scenarios = [
 #    "Scenario A",
@@ -17,7 +22,7 @@ from modules.resilience_index import calculate_resilience
 
 # Input files
 # err_file = "ErrorProfiles_input.CSV"
-sch_file = "ScheduleProfiles_input.CSV"
+sch_file = "2030-syn-gas-low_Scenario A_ER-0.5_01-01-2018_365.CSV"  # "ScheduleProfiles_input.CSV"
 T_file = "T_amp_input.CSV"
 load_file = "LoadProfiles_input.CSV"
 
@@ -42,7 +47,7 @@ if __name__ == '__main__':
         store_results=store_results,
         simulation_period=("01-01", 14),
         fmu_filename="FMU_Container.fmu",
-        schedule_profiles_filename="ScheduleProfiles_input.CSV"  #,
+        schedule_profiles_filename=sch_file  #,
     )
 
     print("Simulation done.")

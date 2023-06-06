@@ -2,8 +2,9 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import parse
 import plotly.graph_objects as go
-import modules.res_tools_flexible as res
-import numpy as np
+#import modules.res_tools_flexible as res
+#import numpy as np
+from kaleido.scopes.plotly import PlotlyScope
 import os
 
 
@@ -328,7 +329,6 @@ def radar_chart(store_results, attributes, scenarios, categories):
     shannon = attributes[0]
     stirling = attributes[1]
     redundancy = attributes[2]
-
     fig = go.Figure()
 
     for count, scenario in enumerate(scenarios):
@@ -348,7 +348,6 @@ def radar_chart(store_results, attributes, scenarios, categories):
             )),
         showlegend=True
     )
-
     #fig.show()
     plot_path = os.path.join(store_results, "plots", "radar_chart.png")
     fig.write_image(plot_path)  # specifically kaleido v0.1.0.post1 was required for this line

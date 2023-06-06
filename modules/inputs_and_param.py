@@ -49,7 +49,7 @@ def get_start_values(scenarios, filename):
 
 def get_inputs(
         sch_profiles,
-        err_file="ErrorProfiles_input.CSV",
+        err_file="reference.CSV",
         T_file="T_amp_input.CSV",
         load_file="LoadProfiles_input.CSV",
 ):
@@ -88,24 +88,30 @@ def get_inputs(
 
     # defining input variables and filling in the values for every 15 min (900 sec) without interpolation
     time = load_df.index
-    T_amb = np.repeat(T_df["T_amp"], 4)
-    u_HeatPump1_error = np.repeat(err_df["Heatpump1"], 4)
-    u_HeatPump2_error = np.repeat(err_df["Heatpump2"], 4)
-    u_Electrolyzer_error = np.repeat(err_df["Electrolysis"], 4)
-    u_Boiler_error = np.repeat(err_df["Boiler"], 4)
-    u_CHP_error = np.repeat(err_df["CHP"], 4)
-    u_HeatPump_scheudle = np.repeat(sch_df["Heatpump"], 4)
-    u_Electrolyzer_scheudle = np.repeat(sch_df["Electrolysis"], 4)
-    u_Boiler_scheudle = np.repeat(sch_df["Boiler"], 4)
-    u_CHP_scheudle = np.repeat(sch_df["CHP"], 4)
-    u_loadProfile_DemandPower_kW = np.repeat(load_df["DemandPower"], 4)
-    u_loadProfile_DemandHeat_kW = np.repeat(load_df["DemandHeat"], 4)
+
+    sch_df = pd.DataFrame(sch_df.values.repeat(4, axis=0), columns=sch_df.columns)  # adjusting the sizes
+    err_df = pd.DataFrame(err_df.values.repeat(4, axis=0), columns=err_df.columns)
+    T_df = pd.DataFrame(T_df.values.repeat(4, axis=0), columns=T_df.columns)
+
+    T_amb = T_df["T_amp"]
+    u_HeatPump1_error = err_df["Heatpump1"]
+    u_HeatPump2_error = err_df["Heatpump2"]
+    u_Electrolyzer_error = err_df["Electrolysis"]
+    u_Boiler_error = err_df["Boiler"]
+    u_CHP_error = err_df["CHP"]
+    u_HeatPump_scheudle = sch_df["u_HeatPump_scheudle"]
+    u_Electrolyzer_scheudle = sch_df["u_Electrolyzer_scheudle"]
+    u_Boiler_scheudle = sch_df["u_Boiler_scheudle"]
+    u_CHP_scheudle = sch_df["u_CHP_scheudle"]
+    u_loadProfile_DemandPower_kW = load_df["DemandPower"]
+    u_loadProfile_DemandHeat_kW = load_df["DemandHeat"]
 
     # the missing inputs are filled up with zeros
-    el_costs_extern = np.repeat(0.0, np.array(load_df["DemandPower"]).shape)
-    co2_extern = np.repeat(0.0, np.array(load_df["DemandPower"]).shape)
-    u_loadProfile_DemandEMob_kW = np.repeat(0.0, np.array(load_df["DemandPower"]).shape)
-    u_loadProfile_ProductionPV_kW = np.repeat(0.0, np.array(load_df["DemandPower"]).shape)
+    el_costs_extern = np.zeros(load_df.shape[0])    # np.repeat(0.0, np.array(load_df["DemandPower"]).shape)
+    co2_extern = np.zeros(load_df.shape[0])
+    u_loadProfile_DemandEMob_kW = np.zeros(load_df.shape[0])
+    u_loadProfile_ProductionPV_kW = np.zeros(load_df.shape[0])
+
 
     # create a structured array that can be passed to simulate_fmu()
     dtype = np.dtype([('time', np.float64), ('T_amb', np.float64), ('u_HeatPump1_error', np.float64),
@@ -188,10 +194,9 @@ def simulation(
         else:
             schedule_profiles = pd.read_csv(
                 os.path.join("input", "modelica", "profiles",
-                             schedule_profiles_filename),
-                delimiter=";", index_col="sec"
+                             schedule_profiles_filename)
             )
-
+        print(schedule_profiles.head())
         # for each error file, the structured array for the inputs is generated
         # and each scenario is simulated, the
         # corresponding results saved in a csv file
@@ -202,7 +207,7 @@ def simulation(
                 err_file=error_file,
                 sch_profiles=schedule_profiles,
             )
-
+            print(inputs)
             # reset the FMU instance instead of creating a new one
             fmu_instance.reset()
 

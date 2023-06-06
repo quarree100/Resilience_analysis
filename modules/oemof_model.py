@@ -1,15 +1,16 @@
 import oemof.solph as solph
 import yaml
 import os
-import math
+#import math
 import pandas as pd
 from oemof.tools import logger
-from oemof.network.graph import create_nx_graph
+#from oemof.network.graph import create_nx_graph
 # from oemof_visio import ESGraphRenderer
 # from q100opt.plots import plot_es_graph
 from matplotlib import pyplot as plt
-import datetime
+#import datetime
 from copy import deepcopy
+import numpy as np
 
 from modules import pre_calculation as precalc
 
@@ -572,10 +573,10 @@ def calculate_oemof_model(
 
     print("Sum of electricity and heat buses values: \n", df_balances)
 
-    return d_results_heat_generation["mid_case"]
+    return d_results_heat_generation["mid_case"], dim_kwargs
 
 
-def prepare_schedules(df):
+def prepare_schedules(df, capacities_info=None):
     """
     This function should prepare the oemof schedules for the modelica input.
 
@@ -588,8 +589,29 @@ def prepare_schedules(df):
     -------
     pandas.DateFrame : With the timeseries format for the modelica input.
     """
-
+    print(df.columns[1])  # "(('gas_boiler', 'heat_generation'), 'flow')"
+    print(df.columns[5])  #  "(('chp', 'heat_generation'), 'flow')"
+    print(df.columns[8])  #  "(('heatpump_air', 'heat_generation'), 'flow')"
+    print(df.columns[10])  # "(('electricity', 'electrolysis'), 'flow')"
     df_modelica = pd.DataFrame()
+    chp_th_cap = capacities_info["capacity_chp_el"] * capacities_info["eta_th_chp"] / \
+                                    capacities_info["eta_el_chp"]
+    df_modelica["u_Boiler_scheudle"] = df[df.columns[1]] / \
+                                       capacities_info["capacity_boiler"]
+    df_modelica["u_CHP_scheudle"] = df[df.columns[5]] / chp_th_cap
+    df_modelica["u_HeatPump_scheudle"] = df[df.columns[8]] / \
+                                         capacities_info["capacity_hp_air"]
+    df_modelica["u_Electrolyzer_scheudle"] = df[df.columns[10]] / \
+                                             capacities_info["capacity_electrlysis_el"]
+
+    #print(df_modelica.head())
+
+    print("MAX Boiler: ", df_modelica["u_Boiler_scheudle"].max())
+    print("MAX CHP: ", df_modelica["u_CHP_scheudle"].max())
+    print("MAX Heatpump: ", df_modelica["u_HeatPump_scheudle"].max())
+    print("MAX Electrolyzer: ", df_modelica["u_Electrolyzer_scheudle"].max())
+    #df_modelica = pd.DataFrame(df_modelica.values.repeat(3, axis=0), columns=df_modelica.columns)
+    #print(df_modelica.head())
 
     return df_modelica
 
