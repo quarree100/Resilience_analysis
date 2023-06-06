@@ -1,6 +1,11 @@
 from modules.inputs_and_param import simulation
 from modules.plotting_results import temperature_control
 from modules.resilience_index import calculate_resilience
+from modules.res_tools_flexible import resilience_attributes_calculation
+from modules.res_tools_flexible import anlagen_table_convertor
+from datetime import datetime
+from modules.scenarios_and_errors import read_scenarios_names, generating_error_files_list
+import os as os
 
 #scenarios = [
 #    "Scenario A",
@@ -17,13 +22,14 @@ from modules.resilience_index import calculate_resilience
 
 # Input files
 # err_file = "ErrorProfiles_input.CSV"
+
 sch_file = "ScheduleProfiles_input.CSV"
 T_file = "T_amp_input.CSV"
 load_file = "LoadProfiles_input.CSV"
 
 if __name__ == '__main__':
 
-    execution_time = datetime.datetime.now()
+    execution_time = datetime.now()
     ex_time = execution_time.strftime("%m%d%Y_%H_%M_%S")
     store_results = os.path.join("results", ex_time)
     os.mkdir(store_results)

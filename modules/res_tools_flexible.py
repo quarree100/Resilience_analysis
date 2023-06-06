@@ -243,6 +243,19 @@ def stirling_index(list_of_systems, energy_provision, alpha=1, beta=1,
         final_index += stirling_combination
     return final_index
 
+def dbs(load, list_of_systems, value_column):
+    """
+    Damper Buffer Storage (DBS) [h] is an indicator which compares the damper, buffer and storage capacity [kWh]
+    with the maximum load of the system [kW]
+
+    Args:
+        load:
+        list_of_systems:
+        value_column:
+
+    Returns:
+
+    """
 
 def redundancy(load, list_of_systems, value_column, alpha=0.1, beta=0.5):
     """

@@ -1,11 +1,15 @@
-Parameter;Unit;Explanation;Scenario A;Scenario B;Scenario C
-ScaleFactor_HP1;[-];1=500 kW;0.8;0.4;2.4
-ScaleFactor_HP2;[-];1=500 kW;0.2;0.1;0.6
-capP_el_chp;[kW];-;400;750;250
-eta_el_chp;[-];-;0.38;0.38;0.38
-eta_th_chp;[-];-;0.55;0.55;0.55
-capP_el_electrolyser;[kW];-;250;250;250
-capP_el_pv;[kW];-;2000;2000;200
-capQ_th_boiler;[kW];-;2000;2000;1000
-h_tes;[m];-;3.2;3.2;6
-d_tes;[m];-;20;20;20
+Parameter;Unit;Explanation;2020_emission-low;2020_emission-high;2030_syn-gas-high_emission-low;2030_syn-gas-high_emission-high;2030_syn-gas-low_emission-low;2030_syn-gas-low_emission-high;2050_syn-gas-high_emission-low;2050_syn-gas-high_emission-high;2050_syn-gas-low_emission-low;2050_syn-gas-low_emission-high
+ScaleFactor_HP1;[-];1=500 kW;0.624148442;0.428662814;3.565428502;1.022902307;4.189889786;1.475370701;2.729703874;2.322298561;2.785721029;0.873229453
+ScaleFactor_HP2;[-];1=500 kW;0.15603711;0.107165704;0.891357125;0.255725577;1.047472446;0.368842675;0.682425968;0.58057464;0.696430257;0.218307363
+capP_el_chp;[kW];-;1350.194094;72.90691165;321.5610732;157.9957375;0;218.9245633;1381.818182;0;0;138.7557214
+eta_el_chp;[-];-;0.38;0.38;0.38;0.38;0.38;0.38;0.38;0.38;0.38;0.38
+eta_th_chp;[-];-;0.55;0.55;0.55;0.55;0.55;0.55;0.55;0.55;0.55;0.55
+capP_el_electrolyser;[kW];-;0;0;0;0;0;0;0;0;6250;0
+capP_el_pv;[kW];-;0;0;0;0;0;0;0;0;0;0
+capQ_th_boiler;[kW];-;0.00;1237.66;0.00;705.70;0.00;233.68;0.00;250.62;0.00;805.51
+h_tes;[m];-;3.2;3.2;3.2;3.2;3.2;3.2;3.2;3.2;3.2;3.2
+d_tes;[m];-;20;20;20;20;20;20;20;20;20;20
+;;;;;;;;;;;;
+;;;;;;;;;;;;
+;;;;;;;;;;;;
+;;;;;;;;;;;;

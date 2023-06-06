@@ -2,8 +2,6 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import parse
 import plotly.graph_objects as go
-import modules.res_tools_flexible as res
-import numpy as np
 import os
 
 
