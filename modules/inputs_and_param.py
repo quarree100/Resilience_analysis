@@ -196,7 +196,6 @@ def simulation(
                 os.path.join("input", "modelica", "profiles",
                              schedule_profiles_filename)
             )
-        print(schedule_profiles.head())
         # for each error file, the structured array for the inputs is generated
         # and each scenario is simulated, the
         # corresponding results saved in a csv file
@@ -207,7 +206,6 @@ def simulation(
                 err_file=error_file,
                 sch_profiles=schedule_profiles,
             )
-            print(inputs)
             # reset the FMU instance instead of creating a new one
             fmu_instance.reset()
 

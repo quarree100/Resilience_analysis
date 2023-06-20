@@ -29,7 +29,7 @@ load_file = "LoadProfiles_input.CSV"
 
 if __name__ == '__main__':
 
-    execution_time = datetime.now()
+    execution_time = datetime.datetime.now()
     ex_time = execution_time.strftime("%m%d%Y_%H_%M_%S")
     store_results = os.path.join("results", ex_time)
     os.mkdir(store_results)

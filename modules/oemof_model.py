@@ -589,10 +589,10 @@ def prepare_schedules(df, capacities_info=None):
     -------
     pandas.DateFrame : With the timeseries format for the modelica input.
     """
-    print(df.columns[1])  # "(('gas_boiler', 'heat_generation'), 'flow')"
-    print(df.columns[5])  #  "(('chp', 'heat_generation'), 'flow')"
-    print(df.columns[8])  #  "(('heatpump_air', 'heat_generation'), 'flow')"
-    print(df.columns[10])  # "(('electricity', 'electrolysis'), 'flow')"
+    #print(df.columns[1])  # "(('gas_boiler', 'heat_generation'), 'flow')"
+    #print(df.columns[5])  #  "(('chp', 'heat_generation'), 'flow')"
+    #print(df.columns[8])  #  "(('heatpump_air', 'heat_generation'), 'flow')"
+    #print(df.columns[10])  # "(('electricity', 'electrolysis'), 'flow')"
     df_modelica = pd.DataFrame()
     chp_th_cap = capacities_info["capacity_chp_el"] * capacities_info["eta_th_chp"] / \
                                     capacities_info["eta_el_chp"]
@@ -603,15 +603,6 @@ def prepare_schedules(df, capacities_info=None):
                                          capacities_info["capacity_hp_air"]
     df_modelica["u_Electrolyzer_scheudle"] = df[df.columns[10]] / \
                                              capacities_info["capacity_electrlysis_el"]
-
-    #print(df_modelica.head())
-
-    print("MAX Boiler: ", df_modelica["u_Boiler_scheudle"].max())
-    print("MAX CHP: ", df_modelica["u_CHP_scheudle"].max())
-    print("MAX Heatpump: ", df_modelica["u_HeatPump_scheudle"].max())
-    print("MAX Electrolyzer: ", df_modelica["u_Electrolyzer_scheudle"].max())
-    #df_modelica = pd.DataFrame(df_modelica.values.repeat(3, axis=0), columns=df_modelica.columns)
-    #print(df_modelica.head())
 
     return df_modelica
 
