@@ -1,4 +1,4 @@
-,,2020,2030-syn-gas-low,2030-syn-gas-high,2050-syn-gas-low,2050-syn-gas-high
+,,2020,2030_syn-gas-low,2030_syn-gas-high,2050_syn-gas-low,2050_syn-gas-high
 gas_source,variable_costs,0.035,0.04545,0.0768,0.0577,0.1258
 gas_source,emission_factor,0.202,0.1919,0.1616,0.1616,0.0404
 hydrogen_sell,variable_costs,-0.0175,-0.022725,-0.0384,-0.02885,-0.0629
