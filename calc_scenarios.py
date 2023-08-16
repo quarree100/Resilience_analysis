@@ -23,11 +23,12 @@ from modules.res_tools_flexible import anlagen_table_convertor, resilience_attri
 # Input files
 # err_file = "ErrorProfiles_input.CSV"
 
-sch_file = "2030-syn-gas-low_Scenario A_ER-0.5_01-01-2018_365.CSV"  # "ScheduleProfiles_input.CSV"
+sch_files = os.listdir(os.path.join("input", "modelica", "profiles"))#"2030-syn-gas-low_Scenario A_ER-0.5_01-01-2018_365.CSV"  # "ScheduleProfiles_input.CSV"
 T_file = "T_amp_input.CSV"
 load_file = "LoadProfiles_input.CSV"
 
 if __name__ == '__main__':
+    print(sch_files)
 
     execution_time = datetime.datetime.now()
     ex_time = execution_time.strftime("%m%d%Y_%H_%M_%S")
@@ -37,18 +38,18 @@ if __name__ == '__main__':
     os.mkdir(os.path.join(store_results, "plots"))
 
     scenarios = read_scenarios_names("Parameter_Values.csv")
+    print(scenarios)
     error_files, error_names = generating_error_files_list()
-    error_files = error_files[0:2]  # to not run all errors
 
     simulation(
         dimension_filename="Parameter_Values.csv",
-        dimension_scenarios=scenarios,
-        error_files=error_files,
+        dimension_scenarios=scenarios[:2],
+        error_files=error_files[:2],
         make_plot=True,
         store_results=store_results,
-        simulation_period=("01-01", 14),
+        #simulation_period=("01-01", 14),
         fmu_filename="FMU_Container.fmu",
-        schedule_profiles_filename=sch_file  #,
+        schedule_profiles_filenames=None  #,
     )
 
     print("Simulation done.")
