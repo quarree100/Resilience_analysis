@@ -457,6 +457,18 @@ def calculate_oemof_model(
     # merge the global timeseries to local timeseries dataframe
     timeseries = pd.concat([timeseries, timeseries_global], axis=1)
 
+    print("*********************")
+    print("TIME SERIES LOCAL: ")
+    print(timeseries.head())
+    print(timeseries.columns)
+    print("TIME SERIES GLOBAL: ")
+    print(timeseries_global.head())
+    print(timeseries_global.columns)
+    print("TIME SERIES AFTER CONCAT: ")
+    print(timeseries.head())
+    print(timeseries.columns)
+    print("***********************")
+
     # Create and solve oemof-solph model ######################################
 
     start = pd.to_datetime(simulation_period[0], yearfirst=False)

@@ -48,6 +48,42 @@ def get_start_values(scenarios, filename):
     return start_values_dict
 
 
+def get_simulation_period(err_file):
+    """Finding the simulation period corresponding to the error"""
+
+    fn = os.path.join("input", "modelica", "error_scenarios", err_file)
+
+    try:
+        err_df = pd.read_csv(fn, delimiter=";", index_col="sec")
+    except ValueError:
+        err_df = pd.read_csv(fn, delimiter=",", index_col="sec")
+
+    simulation_year = datetime.datetime.strptime(err_df["date"].values[0], "%d.%m.%Y %H:%M").year
+    if "short" in err_file or "medium" in err_file:
+        duration = 3  # in days
+    else:
+        duration = 10  # in days
+    if "winter" in err_file:
+        starting_point = "09-01"
+        starting_point = datetime.datetime.strptime(starting_point, "%d-%m")
+    elif "summer" in err_file:
+        starting_point = "17-07"
+        starting_point = datetime.datetime.strptime(starting_point, "%d-%m")
+    else:
+        starting_point = "17-04"
+        starting_point = datetime.datetime.strptime(starting_point, "%d-%m")
+
+    starting_point = starting_point.replace(year=simulation_year)
+    starting_point_sec = int((starting_point - datetime.datetime(year=simulation_year, month=1, day=1)).total_seconds())
+    starting_point_index = int(starting_point_sec / 900)
+    endpoint = starting_point + datetime.timedelta(days=duration)
+    endpoint_sec = int((endpoint - datetime.datetime(year=simulation_year, month=1, day=1)).total_seconds())
+    endpoint_index = int(endpoint_sec / 900)
+
+
+    return starting_point_index, endpoint_index
+
+
 def get_inputs(
         sch_profiles,
         #simulation_period,
@@ -99,41 +135,15 @@ def get_inputs(
     # defining input variables and filling in the values for every 15 min (900 sec) without interpolation
     time = load_df.index
 
-    #Finding the simulation period corresponding to the error
-    simulation_year = datetime.datetime.strptime(err_df["date"].values[0], "%d.%m.%Y %H:%M").year
-    if "short" in err_file or "medium" in err_file:
-        duration = 3  # in days
-    else:
-        duration = 10  # in days
-    if "winter" in err_file:
-        starting_point = "09-01"
-        starting_point = datetime.datetime.strptime(starting_point, "%d-%m")
-    elif "summer" in err_file:
-        starting_point = "17-07"
-        starting_point = datetime.datetime.strptime(starting_point, "%d-%m")
-    else:
-        starting_point = "17-04"
-        starting_point = datetime.datetime.strptime(starting_point, "%d-%m")
-
-    starting_point = starting_point.replace(year=simulation_year)
-    starting_point_sec = int((starting_point - datetime.datetime(year=simulation_year, month=1, day=1)).total_seconds())
-    starting_point_index = int(starting_point_sec / 900)
-    endpoint = starting_point + datetime.timedelta(days=duration)
-    endpoint_sec = int((endpoint - datetime.datetime(year=simulation_year, month=1, day=1)).total_seconds())
-    endpoint_index = int(endpoint_sec / 900)
-
-    time = time[int(starting_point_index):int(endpoint_index)]
-
-
     if sch_profiles:
         sch_df = sch_profiles
         sch_df = pd.DataFrame(sch_df.values.repeat(4, axis=0), columns=sch_df.columns)  # adjusting the sizes
 
 
-        u_HeatPump_scheudle = sch_df["u_HeatPump_scheudle"].iloc[int(starting_point_index):int(endpoint_index)]
-        u_Electrolyzer_scheudle = sch_df["u_Electrolyzer_scheudle"].iloc[int(starting_point_index):int(endpoint_index)]
-        u_Boiler_scheudle = sch_df["u_Boiler_scheudle"].iloc[int(starting_point_index):int(endpoint_index)]
-        u_CHP_scheudle = sch_df["u_CHP_scheudle"].iloc[int(starting_point_index):int(endpoint_index)]
+        u_HeatPump_scheudle = sch_df["u_HeatPump_scheudle"]  #.iloc[int(starting_point_index):int(endpoint_index)]
+        u_Electrolyzer_scheudle = sch_df["u_Electrolyzer_scheudle"]  #.iloc[int(starting_point_index):int(endpoint_index)]
+        u_Boiler_scheudle = sch_df["u_Boiler_scheudle"]  #.iloc[int(starting_point_index):int(endpoint_index)]
+        u_CHP_scheudle = sch_df["u_CHP_scheudle"]  #.iloc[int(starting_point_index):int(endpoint_index)]
 
     else:
         shape = time.shape[0]
@@ -146,14 +156,14 @@ def get_inputs(
     T_df = pd.DataFrame(T_df.values.repeat(4, axis=0), columns=T_df.columns)
 
 
-    T_amb = T_df["T_amp"].iloc[int(starting_point_index):int(endpoint_index)]
-    u_HeatPump1_error = err_df["Heatpump1"].iloc[int(starting_point_index):int(endpoint_index)]
-    u_HeatPump2_error = err_df["Heatpump2"].iloc[int(starting_point_index):int(endpoint_index)]
-    u_Electrolyzer_error = err_df["Electrolysis"].iloc[int(starting_point_index):int(endpoint_index)]
-    u_Boiler_error = err_df["Boiler"].iloc[int(starting_point_index):int(endpoint_index)]
-    u_CHP_error = err_df["CHP"].iloc[int(starting_point_index):int(endpoint_index)]
-    u_loadProfile_DemandPower_kW = load_df["DemandPower"].iloc[int(starting_point_index):int(endpoint_index)]
-    u_loadProfile_DemandHeat_kW = load_df["DemandHeat"].iloc[int(starting_point_index):int(endpoint_index)]
+    T_amb = T_df["T_amp"]  #.iloc[int(starting_point_index):int(endpoint_index)]
+    u_HeatPump1_error = err_df["Heatpump1"]  #.iloc[int(starting_point_index):int(endpoint_index)]
+    u_HeatPump2_error = err_df["Heatpump2"]  #.iloc[int(starting_point_index):int(endpoint_index)]
+    u_Electrolyzer_error = err_df["Electrolysis"]  #.iloc[int(starting_point_index):int(endpoint_index)]
+    u_Boiler_error = err_df["Boiler"]  #.iloc[int(starting_point_index):int(endpoint_index)]
+    u_CHP_error = err_df["CHP"]  #.iloc[int(starting_point_index):int(endpoint_index)]
+    u_loadProfile_DemandPower_kW = load_df["DemandPower"]  #.iloc[int(starting_point_index):int(endpoint_index)]
+    u_loadProfile_DemandHeat_kW = load_df["DemandHeat"]  #.iloc[int(starting_point_index):int(endpoint_index)]
 
     # the missing inputs are filled up with zeros
     el_costs_extern = np.zeros(time.shape[0])    # np.repeat(0.0, np.array(load_df["DemandPower"]).shape)
@@ -253,6 +263,10 @@ def simulation(
         # corresponding results saved in a csv file
         for error_file in error_files:
 
+            start_time, end_time = get_simulation_period(error_file)
+
+            print(start_time, end_time)
+
             inputs = get_inputs(
                 err_file=error_file,
                 sch_profiles=schedule_profiles,
@@ -271,7 +285,9 @@ def simulation(
                                   start_values=start_values,
                                   model_description=model_description,
                                   fmu_instance=fmu_instance,
-                                  debug_logging=True)
+                                  debug_logging=True,
+                                  start_time=start_time,
+                                  stop_time=end_time)
 
             print("FMU simulation finished.")
 
@@ -281,6 +297,7 @@ def simulation(
             csv_filename = "results_" + str(scenario) + "_" + error_file
             df_res.to_csv(os.path.join(store_results, "data", csv_filename))
 
+            print("ACTUAL TIME (after simulation)", df_res.index)
 
             if make_plot:
                 plot(data_file=csv_filename, store_results=store_results, scenarios=dimension_scenarios)
