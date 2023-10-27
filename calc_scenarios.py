@@ -7,22 +7,6 @@ from modules.resilience_index import calculate_resilience
 from modules.scenarios_and_errors import read_scenarios_names, generating_error_files_list
 from modules.res_tools_flexible import anlagen_table_convertor, resilience_attributes_calculation
 
-#scenarios = [
-#    "Scenario A",
-#    "Scenario B",
-#    "Scenario C",
-#]
-
-#error_files = [
-    # "ErrorProfiles_input.CSV",
-    # "ErrorProfiles_input_Boiler_14_10_18.CSV",
-    # "ErrorProfiles_input_CHP_13_1_18.CSV",
-    # "ErrorProfiles_input_no-errors.CSV",
-# ]
-
-# Input files
-# err_file = "ErrorProfiles_input.CSV"
-
 sch_files = os.listdir(os.path.join("input", "modelica", "profiles"))#"2030-syn-gas-low_Scenario A_ER-0.5_01-01-2018_365.CSV"  # "ScheduleProfiles_input.CSV"
 T_file = "T_amp_input.CSV"
 load_file = "LoadProfiles_input.CSV"
@@ -37,19 +21,19 @@ if __name__ == '__main__':
     os.mkdir(os.path.join(store_results, "data"))
     os.mkdir(os.path.join(store_results, "plots"))
 
-    scenarios = read_scenarios_names("Parameter_Values.csv")
+    scenarios = read_scenarios_names("Parameter_Values_20231027.csv")
     print(scenarios)
     error_files, error_names = generating_error_files_list()
 
     simulation(
-        dimension_filename="Parameter_Values.csv",
+        dimension_filename="Parameter_Values_20231027.csv",
         dimension_scenarios=scenarios[:2],
         error_files=error_files[:2],
         make_plot=True,
         store_results=store_results,
         #simulation_period=("01-01", 14),
         fmu_filename="FMU_Container.fmu",
-        schedule_profiles_filenames=None  #,
+        schedule_profiles_filenames=sch_files[:]
     )
 
     print("Simulation done.")

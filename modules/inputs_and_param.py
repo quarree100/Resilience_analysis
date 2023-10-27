@@ -135,7 +135,7 @@ def get_inputs(
     # defining input variables and filling in the values for every 15 min (900 sec) without interpolation
     time = load_df.index
 
-    if sch_profiles:
+    if sch_profiles.index:
         sch_df = sch_profiles
         sch_df = pd.DataFrame(sch_df.values.repeat(4, axis=0), columns=sch_df.columns)  # adjusting the sizes
 

@@ -19,13 +19,9 @@ global_scenarios = [
      "2050-syn-gas-low",
  "2050-syn-gas-high"]
 
-dimension_scenarios = [
-    "Scenario A",
-    # "Scenario B",
-    # "Scenario C",
-]
-
 input_scenarios = read_scenarios_names("Parameter_Values.csv")
+#input_scenarios = input_scenarios[9:10]
+#print("Scenario: ", input_scenarios)
 
 for scenario in input_scenarios:
 
