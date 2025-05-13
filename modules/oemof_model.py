@@ -292,8 +292,7 @@ def solve_model(energysystem, emission_limit=1000000000):
     }
 
     model.solve(solver=solver, solve_kwargs={"tee": solver_verbose},
-                cmdline_options=solver_cmdline_options
-                )
+                cmdline_options=solver_cmdline_options)
 
     # The processing module of the outputlib can be used to extract the results
     # from the model transfer them into a homogeneous structured dictionary.
@@ -343,8 +342,7 @@ def plot_results(esys):
 
 
 def calculate_oemof_model(
-        dimension_scenario,
-        global_scenario,
+        scenario,
         simulation_period=("01-01-2018", 365),
         factor_emission_reduction=0.5,
         path_oemof=os.path.join("input", "solph"),
@@ -385,11 +383,13 @@ def calculate_oemof_model(
     # get and prepare all dimensioning data ###################################
 
     dim_sc_table = pd.read_csv(os.path.join(
-        path_common, "dimension_scenarios", "Parameter_Values.csv"),
-        index_col=0, sep=";",
-    )
+        path_common, "dimension_scenarios", "Parameter_Values.csv"), index_col=0, sep=";")
 
-    dim_sc = dim_sc_table.T.loc[dimension_scenario]
+    print(dim_sc_table.columns)
+    print(scenario)
+    print(dim_sc_table.T.head())
+    dim_sc = dim_sc_table.T.loc[scenario]  # it was dimension_scenario
+    print(dim_sc)
 
     # capacity heat pump air
     cap_hp_air = dim_sc.loc["ScaleFactor_HP1"] * 500 +\
@@ -423,6 +423,9 @@ def calculate_oemof_model(
         path_oemof, "parameter_global.csv"
     ), index_col=[0, 1])
 
+
+    global_scenario = scenario.split("_em")[0]
+    print("GLOBAL SCENARIO: ", global_scenario)
     # add the commodity data to the tech_param dict
     tech_param.update(
         df_global_param.loc[:, global_scenario].unstack().T.to_dict()
@@ -453,6 +456,18 @@ def calculate_oemof_model(
 
     # merge the global timeseries to local timeseries dataframe
     timeseries = pd.concat([timeseries, timeseries_global], axis=1)
+
+    print("*********************")
+    print("TIME SERIES LOCAL: ")
+    print(timeseries.head())
+    print(timeseries.columns)
+    print("TIME SERIES GLOBAL: ")
+    print(timeseries_global.head())
+    print(timeseries_global.columns)
+    print("TIME SERIES AFTER CONCAT: ")
+    print(timeseries.head())
+    print(timeseries.columns)
+    print("***********************")
 
     # Create and solve oemof-solph model ######################################
 
@@ -620,7 +635,7 @@ if __name__ == '__main__':
 
     tech_param = os.path.join(path_oemof, "parameter.yaml")
 
-    timeseries = pd.read_csv(os.path.join(path_oemof, "Timeseries_15min.csv"),
+    timeseries = pd.read_csv(os.path.join(path_oemof, "Timeseries_15min_global.csv"),
                              sep=",")
 
     timeseries.index = pd.DatetimeIndex(

@@ -5,6 +5,7 @@ import plotly.graph_objects as go
 #import modules.res_tools_flexible as res
 #import numpy as np
 from kaleido.scopes.plotly import PlotlyScope
+from matplotlib.backends.backend_pdf import PdfPages
 import os
 
 
@@ -352,3 +353,291 @@ def radar_chart(store_results, attributes, scenarios, categories):
     plot_path = os.path.join(store_results, "plots", "radar_chart.png")
     fig.write_image(plot_path)  # specifically kaleido v0.1.0.post1 was required for this line
 
+
+def plot_combined_wo_seasons(scenario_list=["2020_emission-low", "2020_emission-high", "2030_syn-gas-high_emission-low",
+                                            "2030_syn-gas-high_emission-high", "2030_syn-gas-low_emission-low",
+                                            "2030_syn-gas-low_emission-high"],
+                             duration=["short duration (3h)", "medium duration (1d)", "long duration (7d)", "combined"],
+                             season=["transitional", "summer", "winter"],
+                             folder_path=r'C:\Users\pooji\forunilaptop\artec\Untitled Folder',
+                             save_as_pdf=False):  # Add a save_as_pdf argument
+
+    """
+
+This code works WITHOUT season functionality.
+It generates combined plots for each scenario irrespective of the seasons. (To get this, DO NOT enter duration argument while calling the function)
+It also generates individual plots when duration argument is entered.
+If the folder has all files of the same season, then it gives correct combined plots
+Beware! it also works for files that are of different seasons and considers them for plotting
+
+Folder path will be passed as the current results folder when the function is called from calc_scenarios.
+
+    """
+
+    printed_count = 0
+    scenario_dfs = {}  # Dictionary to store data frames for each scenario
+
+    # Initialize PdfPages object with the full path to the PDF file
+    pdf_path = os.path.join(folder_path, 'plots.pdf')
+    pdf_pages = PdfPages(pdf_path)  # Create a PDF file for saving plots
+
+    for root, _, files in os.walk(folder_path):
+        for file_name in files:
+            if not file_name.endswith("reference.csv"):
+                for scenario in scenario_list:
+                    for dur in duration:  # Iterate through specified durations
+                        if scenario in file_name and dur in file_name:  # Check both scenario and duration
+                            for s in season:
+                                if s in file_name:
+                                    file_path = os.path.join(root, file_name)
+                                    df = pd.read_csv(file_path,
+                                                     usecols=["time", "fMU_PhyModel.temperature_HeatGrid_FF.T",
+                                                              "controller.u_T_HeatGrid_FF_set"])
+
+                                    # Convert Kelvin to Celsius for "fMU_PhyModel.temperature_HeatGrid_FF.T"
+                                    df["fMU_PhyModel.temperature_HeatGrid_FF.T"] -= 273.15
+
+                                    # Create a unique column name based on the file name
+                                    col_name = os.path.splitext(file_name)[0]  # Remove the file extension
+
+                                    # Rename the temperature column
+                                    df.rename(columns={"fMU_PhyModel.temperature_HeatGrid_FF.T": col_name},
+                                              inplace=True)
+
+                                    # Merge data frames
+                                    if scenario not in scenario_dfs:
+                                        scenario_dfs[scenario] = df[
+                                            ["time", "controller.u_T_HeatGrid_FF_set", col_name]]
+                                    else:
+                                        scenario_dfs[scenario] = scenario_dfs[scenario].merge(df[["time", col_name]],
+                                                                                              on="time", how="outer")
+
+                                    printed_count += 1
+
+    print(f"Total data frames printed: {printed_count}")
+
+    # Calculate minimum, maximum, and average for each type of "duration" for each scenario
+    for scenario in scenario_list:
+        for dur in duration:
+            if scenario in scenario_dfs:
+                scenario_dur_columns = [col for col in scenario_dfs[scenario].columns if dur in col]
+                if scenario_dur_columns:
+                    scenario_dfs[scenario][f"{dur}_Minimum"] = scenario_dfs[scenario][scenario_dur_columns].min(axis=1)
+                    scenario_dfs[scenario][f"{dur}_Maximum"] = scenario_dfs[scenario][scenario_dur_columns].max(axis=1)
+                    scenario_dfs[scenario][f"{dur}_Average"] = scenario_dfs[scenario][scenario_dur_columns].mean(axis=1)
+
+    # Create plots for each scenario
+    if not duration or "combined" in duration:
+        for idx, (scenario, df) in enumerate(scenario_dfs.items()):
+            plt.figure(figsize=(12, 6))
+            plt.suptitle(f"Scenario: {scenario}", fontsize=16)  # Add main title for each scenario
+
+            # Plot 1: Short Duration
+            if not duration or "short duration (3h)" in duration:
+                plt.subplot(2, 2, 1)
+                plt.plot(df["time"], df["controller.u_T_HeatGrid_FF_set"], label="Controller Temperature",
+                         color="black")
+                plt.plot(df["time"], df[f"short duration (3h)_Minimum"], label="Short Duration Minimum", color="grey")
+                plt.plot(df["time"], df[f"short duration (3h)_Maximum"], label="Short Duration Maximum", color="grey")
+                plt.plot(df["time"], df[f"short duration (3h)_Average"], label="Short Duration Average", color="grey",
+                         linestyle="--")
+                plt.fill_between(df["time"], df[f"short duration (3h)_Minimum"], df[f"short duration (3h)_Maximum"],
+                                 color="lightgrey")
+                plt.title("Short Duration")
+                plt.legend(loc='upper left', bbox_to_anchor=(1, 1))
+                plt.xlabel("Time")
+                plt.ylabel("Temperature (Celsius)")
+
+            # Plot 2: Medium Duration
+            if not duration or "medium duration (1d)" in duration:
+                plt.subplot(2, 2, 2)
+                plt.plot(df["time"], df["controller.u_T_HeatGrid_FF_set"], label="Controller Temperature",
+                         color="black")
+                plt.plot(df["time"], df[f"medium duration (1d)_Minimum"], label="Medium Duration Minimum", color="grey")
+                plt.plot(df["time"], df[f"medium duration (1d)_Maximum"], label="Medium Duration Maximum", color="grey")
+                plt.plot(df["time"], df[f"medium duration (1d)_Average"], label="Medium Duration Average", color="grey",
+                         linestyle="--")
+                plt.fill_between(df["time"], df[f"medium duration (1d)_Minimum"], df[f"medium duration (1d)_Maximum"],
+                                 color="lightgrey")
+                plt.title("Medium Duration")
+                plt.legend(loc='upper left', bbox_to_anchor=(1, 1))
+                plt.xlabel("Time")
+                plt.ylabel("Temperature (Celsius)")
+
+            # Plot 3: Long Duration
+            if not duration or "long duration (7d)" in duration:
+                plt.subplot(2, 2, 3)
+                plt.plot(df["time"], df["controller.u_T_HeatGrid_FF_set"], label="Controller Temperature",
+                         color="black")
+                plt.plot(df["time"], df[f"long duration (7d)_Minimum"], label="Long Duration Minimum", color="grey")
+                plt.plot(df["time"], df[f"long duration (7d)_Maximum"], label="Long Duration Maximum", color="grey")
+                plt.plot(df["time"], df[f"long duration (7d)_Average"], label="Long Duration Average", color="grey",
+                         linestyle="--")
+                plt.fill_between(df["time"], df[f"long duration (7d)_Minimum"], df[f"long duration (7d)_Maximum"],
+                                 color="lightgrey")
+                plt.title("Long Duration")
+                plt.legend(loc='upper left', bbox_to_anchor=(1, 1))
+                plt.xlabel("Time")
+                plt.ylabel("Temperature (Celsius)")
+
+            # Plot 4: Combined Durations (Only generated if "combined" is in duration)
+            if not duration or "combined" in duration:
+                plt.subplot(2, 2, 4)
+                plt.plot(df["time"], df["controller.u_T_HeatGrid_FF_set"], label="Controller Temperature",
+                         color="black")
+                plt.plot(df["time"], df[f"short duration (3h)_Minimum"], label="Short Duration Minimum", color="grey")
+                plt.plot(df["time"], df[f"short duration (3h)_Maximum"], label="Short Duration Maximum", color="grey")
+                plt.plot(df["time"], df[f"short duration (3h)_Average"], label="Short Duration Average", color="grey",
+                         linestyle="--")
+                plt.plot(df["time"], df[f"medium duration (1d)_Minimum"], label="Medium Duration Minimum", color="grey")
+                plt.plot(df["time"], df[f"medium duration (1d)_Maximum"], label="Medium Duration Maximum", color="grey")
+                plt.plot(df["time"], df[f"medium duration (1d)_Average"], label="Medium Duration Average", color="grey",
+                         linestyle="--")
+                plt.plot(df["time"], df[f"long duration (7d)_Minimum"], label="Long Duration Minimum", color="grey")
+                plt.plot(df["time"], df[f"long duration (7d)_Maximum"], label="Long Duration Maximum", color="grey")
+                plt.plot(df["time"], df[f"long duration (7d)_Average"], label="Long Duration Average", color="grey",
+                         linestyle="--")
+                plt.fill_between(df["time"], df[f"short duration (3h)_Minimum"], df[f"long duration (7d)_Maximum"],
+                                 color="lightgrey")
+                plt.title(f"{scenario} - Combined Durations")
+                plt.legend(loc='upper left', bbox_to_anchor=(1, 1))
+                plt.xlabel("Time")
+                plt.ylabel("Temperature (Celsius)")
+
+            plt.tight_layout()
+
+            if save_as_pdf:
+                pdf_pages.savefig()  # Save the current figure as a page in the PDF
+
+            plt.show()
+
+    elif duration:
+        for scenario, df in scenario_dfs.items():
+            for dur in duration:
+                plt.figure(figsize=(12, 6))
+                plt.title(f"Scenario: {scenario} - Duration: {dur}",
+                          fontsize=16)  # Add title for each scenario and duration
+
+                # Plot Controller Temperature in black
+                plt.plot(df["time"], df["controller.u_T_HeatGrid_FF_set"], label="Controller Temperature",
+                         color="black")
+
+                # Plot Duration with min, max, and average
+                plt.plot(df["time"], df[f"{dur}_Minimum"], label=f"{dur} Minimum", color="grey")
+                plt.plot(df["time"], df[f"{dur}_Maximum"], label=f"{dur} Maximum", color="grey")
+                plt.plot(df["time"], df[f"{dur}_Average"], label=f"{dur} Average", color="grey", linestyle="--")
+
+                # Fill region between min and max with light grey
+                plt.fill_between(df["time"], df[f"{dur}_Minimum"], df[f"{dur}_Maximum"], color="lightgrey")
+
+                plt.legend()
+                plt.xlabel("Time")
+                plt.ylabel("Temperature (Celsius)")
+                plt.tight_layout()
+
+                if save_as_pdf:
+                    pdf_pages.savefig()  # Save the current figure as a page in the PDF
+
+                plt.show()
+
+    if save_as_pdf:
+        pdf_pages.close()  # Close the PDF after saving all figures
+
+    return scenario_dfs
+
+
+def plot_seasons_included(scenario_list=["2020_emission-low", "2020_emission-high"],
+         duration=["short duration (3h)", "medium duration (1d)", "long duration (7d)", "combined"],
+         season=["transitional", "summer", "winter", "all"],
+         folder_path=r'C:\Users\pooji\forunilaptop\artec\to test seasons',
+         save_as_pdf=False):
+
+    """
+
+This code works WITH season functionality.
+It DOESN'T generate combined plots for each scenario irrespective of the seasons.
+It olny generates the individual plots
+
+Folder path will be passed as the current results folder when the function is called from calc_scenarios.
+
+
+    """
+
+    printed_count = 0
+    scenario_dfs = {}
+
+    pdf_pages = None
+
+    if save_as_pdf:
+        pdf_pages = PdfPages('Plots.pdf')
+
+    for root, _, files in os.walk(folder_path):
+        for file_name in files:
+            if not file_name.endswith("reference.csv"):
+                for scenario in scenario_list:
+                    for dur in duration:
+                        for s in season:
+                            if scenario in file_name and dur in file_name and s in file_name:
+                                file_path = os.path.join(root, file_name)
+                                df = pd.read_csv(file_path, usecols=["time", "fMU_PhyModel.temperature_HeatGrid_FF.T",
+                                                                     "controller.u_T_HeatGrid_FF_set"])
+
+                                df["fMU_PhyModel.temperature_HeatGrid_FF.T"] -= 273.15
+
+                                col_name = os.path.splitext(file_name)[0]
+
+                                df.rename(columns={"fMU_PhyModel.temperature_HeatGrid_FF.T": col_name}, inplace=True)
+
+                                if scenario not in scenario_dfs:
+                                    scenario_dfs[scenario] = {}
+                                if s not in scenario_dfs[scenario]:
+                                    scenario_dfs[scenario][s] = {}
+                                if dur not in scenario_dfs[scenario][s]:
+                                    scenario_dfs[scenario][s][dur] = df[
+                                        ["time", "controller.u_T_HeatGrid_FF_set", col_name]]
+                                else:
+                                    scenario_dfs[scenario][s][dur] = scenario_dfs[scenario][s][dur].merge(
+                                        df[["time", col_name]], on="time", how="outer")
+
+                                printed_count += 1
+
+    # print(f"Total data frames printed: {printed_count}")
+
+    # Calculate minimum, maximum, and average values
+    for scenario in scenario_list:
+        for s in season:
+            for dur in duration:
+                if scenario in scenario_dfs and s in scenario_dfs[scenario] and dur in scenario_dfs[scenario][s]:
+                    df = scenario_dfs[scenario][s][dur]
+                    scenario_dfs[scenario][s][dur]["Minimum"] = df[df.columns[2:]].min(axis=1)
+                    scenario_dfs[scenario][s][dur]["Maximum"] = df[df.columns[2:]].max(axis=1)
+                    scenario_dfs[scenario][s][dur]["Average"] = df[df.columns[2:]].mean(axis=1)
+
+    # Create plots for each scenario
+    for scenario in scenario_list:
+        for s in season:
+            for dur in duration:
+                if scenario in scenario_dfs and s in scenario_dfs[scenario] and dur in scenario_dfs[scenario][s]:
+                    df = scenario_dfs[scenario][s][dur]
+                    plt.figure(figsize=(12, 6))
+                    plt.title(f"Scenario: {scenario}, Season: {s}, Duration: {dur}", fontsize=16)
+
+                    plt.plot(df["time"], df["controller.u_T_HeatGrid_FF_set"], label="Controller Temperature",
+                             color="black")
+                    plt.plot(df["time"], df["Minimum"], label=f"{dur} Minimum", color="grey")
+                    plt.plot(df["time"], df["Maximum"], label=f"{dur} Maximum", color="grey")
+                    plt.plot(df["time"], df["Average"], label=f"{dur} Average", color="grey", linestyle="--")
+                    plt.fill_between(df["time"], df["Minimum"], df["Maximum"], color="lightgrey")
+
+                    plt.legend(loc='upper left', bbox_to_anchor=(1, 1))
+                    plt.xlabel("Time")
+                    plt.ylabel("Temperature (Celsius)")
+                    plt.tight_layout()
+
+                    if save_as_pdf:
+                        pdf_pages.savefig()
+
+                    plt.show()
+
+    if save_as_pdf:
+        pdf_pages.close()
